@@ -1,0 +1,129 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-originlabs}
+      POSTGRES_USER: ${POSTGRES_USER:-originlabs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-originlabs_dev_password}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-originlabs} -d ${POSTGRES_DB:-originlabs}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - originlabs_net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data_dev:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - originlabs_net
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ORIGINLABS_ENV: ${ORIGINLABS_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://originlabs:originlabs_dev_password@postgres:5432/originlabs}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CADDY_ADMIN_URL: ${CADDY_ADMIN_URL:-http://caddy:2019}
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - originlabs_net
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ORIGINLABS_ENV: ${ORIGINLABS_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://originlabs:originlabs_dev_password@postgres:5432/originlabs}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CADDY_ADMIN_URL: ${CADDY_ADMIN_URL:-http://caddy:2019}
+    volumes:
+      - ./backend/app:/app/app
+    command: ["arq", "app.worker.WorkerSettings"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - originlabs_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+      VITE_PROXY_TARGET: http://api:8000
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+    depends_on:
+      - api
+    networks:
+      - originlabs_net
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - caddy_data_dev:/data
+      - caddy_config_dev:/config
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - originlabs_net
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:
+  caddy_data_dev:
+  caddy_config_dev:
+
+networks:
+  originlabs_net:
+    name: originlabs_net
+    driver: bridge
