@@ -1,8 +1,8 @@
 """Instance administrator endpoints for update checks and notifications."""
 
+import uuid
 from datetime import UTC, datetime
 from typing import cast
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import desc, func, select, update

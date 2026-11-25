@@ -1,9 +1,9 @@
 """Pydantic v2 schemas for System updates and admin notifications."""
 
+import uuid
 from datetime import datetime
 from typing import Any, Literal
 from urllib.parse import urlparse
-import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 

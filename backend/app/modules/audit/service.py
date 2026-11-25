@@ -1,7 +1,7 @@
 """Service helpers for recording audit trail events."""
 
-from typing import Any
 import uuid
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

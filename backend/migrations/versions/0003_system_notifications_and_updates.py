@@ -7,8 +7,8 @@ Create Date: 2026-11-24
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "0003_system_notifications_and_updates"
 down_revision: str | Sequence[str] | None = "0002_projects_and_git"

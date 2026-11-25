@@ -1,8 +1,8 @@
 """SQLAlchemy ORM models for System notifications and update state."""
 
+import uuid
 from datetime import UTC, datetime
 from typing import Any
-import uuid
 
 from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column

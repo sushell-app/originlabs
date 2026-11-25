@@ -1,8 +1,8 @@
 """SQLAlchemy ORM model for immutable security and operational audit logs."""
 
+import uuid
 from datetime import UTC, datetime
 from typing import Any
-import uuid
 
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column

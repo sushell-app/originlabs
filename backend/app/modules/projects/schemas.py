@@ -1,9 +1,9 @@
 """Pydantic v2 schemas with strict sanitization for Projects and Git connectors."""
 
+import uuid
 from datetime import datetime
 from typing import Literal
 from urllib.parse import urlparse
-import uuid
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 

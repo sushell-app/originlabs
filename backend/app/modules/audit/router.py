@@ -1,8 +1,8 @@
 """Audit log read-only API endpoints."""
 
+import uuid
 from datetime import datetime
 from typing import Any
-import uuid
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict

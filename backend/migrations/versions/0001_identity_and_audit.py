@@ -7,8 +7,8 @@ Create Date: 2026-11-24
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "0001_identity_and_audit"
 down_revision: str | Sequence[str] | None = None
@@ -117,7 +117,12 @@ def upgrade() -> None:
     op.create_index("ix_audit_logs_action", "audit_logs", ["action"], unique=False)
     op.create_index("ix_audit_logs_actor_user_id", "audit_logs", ["actor_user_id"], unique=False)
     op.create_index("ix_audit_logs_created_at", "audit_logs", ["created_at"], unique=False)
-    op.create_index("ix_audit_logs_organization_id", "audit_logs", ["organization_id"], unique=False)
+    op.create_index(
+        "ix_audit_logs_organization_id",
+        "audit_logs",
+        ["organization_id"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:
@@ -127,7 +132,10 @@ def downgrade() -> None:
     op.drop_index("ix_audit_logs_action", table_name="audit_logs")
     op.drop_table("audit_logs")
 
-    op.drop_index("ix_organization_invitations_organization_id", table_name="organization_invitations")
+    op.drop_index(
+        "ix_organization_invitations_organization_id",
+        table_name="organization_invitations",
+    )
     op.drop_index("ix_organization_invitations_email", table_name="organization_invitations")
     op.drop_table("organization_invitations")
 

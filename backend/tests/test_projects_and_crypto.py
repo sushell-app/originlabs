@@ -1,7 +1,7 @@
 """Unit tests for encryption at rest, Projects sanitization schemas and internal Git."""
 
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from app.core.crypto import decrypt_secret, encrypt_secret, mask_secret
 from app.modules.projects.git_providers import InternalGitProvider, build_ephemeral_git_env

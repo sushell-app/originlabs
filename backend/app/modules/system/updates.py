@@ -1,17 +1,17 @@
 """Signed release manifest checking and administrator update notifications."""
 
 import base64
-from dataclasses import dataclass
-from datetime import UTC, datetime
 import hashlib
 import hmac
 import json
 import re
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
+import httpx
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

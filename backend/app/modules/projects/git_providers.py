@@ -84,7 +84,11 @@ class GitHubProvider:
             resp = await client.get(
                 f"{self.base_url}/user/repos",
                 headers=self._headers(),
-                params={"sort": "updated", "per_page": per_page, "affiliation": "owner,collaborator,organization_member"},
+                params={
+                    "sort": "updated",
+                    "per_page": per_page,
+                    "affiliation": "owner,collaborator,organization_member",
+                },
             )
             resp.raise_for_status()
             items = resp.json()

@@ -1,7 +1,7 @@
 """Unit tests for identity cryptographic helpers and strict Pydantic schemas."""
 
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from app.modules.identity.schemas import CreateOrganizationRequest, SetupRequest
 from app.modules.identity.security import (

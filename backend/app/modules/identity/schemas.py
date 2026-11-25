@@ -1,8 +1,8 @@
 """Pydantic v2 schemas for Identity endpoints."""
 
+import uuid
 from datetime import datetime
 from typing import Literal
-import uuid
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 

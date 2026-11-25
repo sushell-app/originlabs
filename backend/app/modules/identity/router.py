@@ -1,8 +1,8 @@
 """Identity API routers: setup, auth, organizations, invitations, RBAC and forward_auth."""
 
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import cast
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
@@ -212,7 +212,11 @@ async def login(
         await db.execute(select(User).where(User.email == normalized_email))
     ).scalar_one_or_none()
 
-    if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
+    if (
+        user is None
+        or not user.is_active
+        or not verify_password(payload.password, user.password_hash)
+    ):
         await record_audit_event(
             db,
             action="auth.login_failed",
@@ -339,7 +343,9 @@ async def accept_invitation(
         if not user.is_active or not verify_password(payload.password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Esta dirección ya tiene cuenta; introduce tu contraseña actual para aceptar.",
+                detail=(
+                    "Esta dirección ya tiene cuenta; introduce tu contraseña actual para aceptar."
+                ),
             )
 
     existing_member = (
@@ -389,7 +395,9 @@ async def list_organizations(
     if not user.is_instance_admin:
         return await _load_user_organizations(db, user)
 
-    orgs = (await db.execute(select(Organization).order_by(Organization.created_at.asc()))).scalars().all()
+    orgs = (
+        await db.execute(select(Organization).order_by(Organization.created_at.asc()))
+    ).scalars().all()
     memberships = (
         await db.execute(
             select(OrganizationMember).where(OrganizationMember.user_id == user.id)
@@ -599,7 +607,10 @@ async def create_organization_invitation(
     )
 
 
-@orgs_router.patch("/{organization_id}/members/{member_id}", response_model=OrganizationMemberPublic)
+@orgs_router.patch(
+    "/{organization_id}/members/{member_id}",
+    response_model=OrganizationMemberPublic,
+)
 async def update_member_role(
     organization_id: uuid.UUID,
     member_id: uuid.UUID,
@@ -624,12 +635,15 @@ async def update_member_role(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Miembro no encontrado.")
 
     member, member_user = row
-    if member.role == "owner" and payload.role != "owner":
-        if await _count_org_owners(db, organization_id) <= 1:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No puedes degradar al último owner de la organización.",
-            )
+    if (
+        member.role == "owner"
+        and payload.role != "owner"
+        and await _count_org_owners(db, organization_id) <= 1
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No puedes degradar al último owner de la organización.",
+        )
 
     previous_role = member.role
     member.role = payload.role
@@ -661,7 +675,10 @@ async def update_member_role(
     )
 
 
-@orgs_router.delete("/{organization_id}/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
+@orgs_router.delete(
+    "/{organization_id}/members/{member_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def remove_member(
     organization_id: uuid.UUID,
     member_id: uuid.UUID,

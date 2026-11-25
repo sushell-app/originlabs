@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for Projects, Git connections, members and encrypted env vars."""
 
-from datetime import UTC, datetime
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship

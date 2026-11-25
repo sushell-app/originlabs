@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for Identity: users, organizations, members and invitations."""
 
-from datetime import UTC, datetime
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship

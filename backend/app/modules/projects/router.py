@@ -1,7 +1,7 @@
 """API endpoints for Projects, Git connections, project members and encrypted env vars."""
 
-from typing import cast
 import uuid
+from typing import cast
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -558,7 +558,11 @@ async def assign_project_member(
         actor=user,
         organization_id=organization_id,
         ip_address=get_client_ip(request),
-        details={"project_slug": project.slug, "target_email": target_user.email, "role": payload.role},
+        details={
+            "project_slug": project.slug,
+            "target_email": target_user.email,
+            "role": payload.role,
+        },
     )
     await db.commit()
     await db.refresh(member)
