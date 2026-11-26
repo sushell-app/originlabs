@@ -76,7 +76,7 @@ curl -fsSL https://sushell.com/labs | sudo bash -s -- --http-only
 
 ## ¿Por qué OriginLabs?
 
-Desarrollado por **[Sushell](https://sushell.com/originlabs)** (autor principal: **Javier Cáceres** · `@iamnvus`), **OriginLabs** resuelve la fragmentación diaria de equipos de desarrollo pequeños y medianos ofreciendo un único plano de control privado bajo tu propio dominio:
+**OriginLabs** resuelve la fragmentación diaria de equipos de desarrollo pequeños y medianos ofreciendo un único plano de control privado bajo tu propio dominio:
 
 1. **Corres un comando** en tu servidor Linux limpio.
 2. **Abres tu dominio** con TLS automático y completas el setup inicial protegido.
