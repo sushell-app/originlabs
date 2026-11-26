@@ -17,6 +17,10 @@ Organizaciones, repositorios Git, **Workspaces con IDE en el navegador**, termin
 
 [Instalación en 1 comando](#instalación-en-1-comando-vps-linux) · [Capacidades](#capacidades-principales) · [Arquitectura](#arquitectura) · [Seguridad](#seguridad-en-5-capas) · [Consumo (`ESTIMADO`)](#requisitos-del-servidor-y-consumo-estimado) · [Contenedor único](#imagen-única-para-vps-pequeños-y-paas) · [Desarrollo local](#inicio-rápido-en-desarrollo-local)
 
+<br />
+
+<img src="docs/assets/originlabs-dashboard.jpg" alt="OriginLabs — Panel principal en producción" width="100%" />
+
 </div>
 
 ---
