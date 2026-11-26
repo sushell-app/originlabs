@@ -541,3 +541,213 @@ export function markAllNotificationsRead(): Promise<void> {
     method: "POST",
   });
 }
+
+export type TaskStatus = "pending" | "in_progress" | "completed" | "rejected";
+export type TaskPriority = "low" | "medium" | "high";
+
+export interface KnowledgeFolderPublic {
+  id: string;
+  organization_id: string;
+  parent_id: string | null;
+  project_id: string | null;
+  name: string;
+  slug: string;
+  created_at: string;
+}
+
+export interface KnowledgeDocPublic {
+  id: string;
+  organization_id: string;
+  folder_id: string | null;
+  title: string;
+  content: string;
+  tags: string[];
+  is_favorite: boolean;
+  author_email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamChannelPublic {
+  id: string;
+  organization_id: string;
+  project_id: string | null;
+  name: string;
+  slug: string;
+  description: string;
+  created_at: string;
+}
+
+export interface TeamMessagePublic {
+  id: string;
+  channel_id: string;
+  sender_user_id: string | null;
+  sender_name: string;
+  sender_email: string;
+  body: string;
+  is_private_note: boolean;
+  created_at: string;
+}
+
+export interface TeamTaskPublic {
+  id: string;
+  organization_id: string;
+  project_id: string | null;
+  source_message_id: string | null;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignee_user_id: string | null;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getKnowledgeFolders(organizationId: string): Promise<KnowledgeFolderPublic[]> {
+  return request<KnowledgeFolderPublic[]>(`/organizations/${organizationId}/knowledge/folders`);
+}
+
+export function createKnowledgeFolder(
+  organizationId: string,
+  payload: { name: string; slug: string; parent_id?: string | null }
+): Promise<KnowledgeFolderPublic> {
+  return request<KnowledgeFolderPublic>(`/organizations/${organizationId}/knowledge/folders`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteKnowledgeFolder(organizationId: string, folderId: string): Promise<void> {
+  return request<void>(`/organizations/${organizationId}/knowledge/folders/${folderId}`, {
+    method: "DELETE",
+  });
+}
+
+export function getKnowledgeDocs(
+  organizationId: string,
+  params?: { folderId?: string; tag?: string; q?: string }
+): Promise<KnowledgeDocPublic[]> {
+  const query = new URLSearchParams();
+  if (params?.folderId) query.set("folder_id", params.folderId);
+  if (params?.tag) query.set("tag", params.tag);
+  if (params?.q) query.set("q", params.q);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return request<KnowledgeDocPublic[]>(`/organizations/${organizationId}/knowledge/docs${suffix}`);
+}
+
+export function createKnowledgeDoc(
+  organizationId: string,
+  payload: {
+    title: string;
+    content: string;
+    folder_id?: string | null;
+    tags?: string[];
+    is_favorite?: boolean;
+  }
+): Promise<KnowledgeDocPublic> {
+  return request<KnowledgeDocPublic>(`/organizations/${organizationId}/knowledge/docs`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateKnowledgeDoc(
+  organizationId: string,
+  docId: string,
+  payload: {
+    title?: string;
+    content?: string;
+    folder_id?: string | null;
+    tags?: string[];
+    is_favorite?: boolean;
+  }
+): Promise<KnowledgeDocPublic> {
+  return request<KnowledgeDocPublic>(`/organizations/${organizationId}/knowledge/docs/${docId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteKnowledgeDoc(organizationId: string, docId: string): Promise<void> {
+  return request<void>(`/organizations/${organizationId}/knowledge/docs/${docId}`, {
+    method: "DELETE",
+  });
+}
+
+export function getChatChannels(organizationId: string): Promise<TeamChannelPublic[]> {
+  return request<TeamChannelPublic[]>(`/organizations/${organizationId}/chat/channels`);
+}
+
+export function createChatChannel(
+  organizationId: string,
+  payload: { name: string; slug: string; description?: string }
+): Promise<TeamChannelPublic> {
+  return request<TeamChannelPublic>(`/organizations/${organizationId}/chat/channels`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getChannelMessages(
+  organizationId: string,
+  channelId: string
+): Promise<TeamMessagePublic[]> {
+  return request<TeamMessagePublic[]>(
+    `/organizations/${organizationId}/chat/channels/${channelId}/messages`
+  );
+}
+
+export function postChannelMessage(
+  organizationId: string,
+  channelId: string,
+  payload: { body: string; is_private_note: boolean }
+): Promise<TeamMessagePublic> {
+  return request<TeamMessagePublic>(
+    `/organizations/${organizationId}/chat/channels/${channelId}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export function getTeamTasks(
+  organizationId: string,
+  statusFilter?: TaskStatus
+): Promise<TeamTaskPublic[]> {
+  const suffix = statusFilter ? `?status=${statusFilter}` : "";
+  return request<TeamTaskPublic[]>(`/organizations/${organizationId}/tasks${suffix}`);
+}
+
+export function createTeamTask(
+  organizationId: string,
+  payload: {
+    title: string;
+    description?: string;
+    priority?: TaskPriority;
+    source_message_id?: string;
+  }
+): Promise<TeamTaskPublic> {
+  return request<TeamTaskPublic>(`/organizations/${organizationId}/tasks`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateTeamTask(
+  organizationId: string,
+  taskId: string,
+  payload: { status?: TaskStatus; priority?: TaskPriority; title?: string }
+): Promise<TeamTaskPublic> {
+  return request<TeamTaskPublic>(`/organizations/${organizationId}/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteTeamTask(organizationId: string, taskId: string): Promise<void> {
+  return request<void>(`/organizations/${organizationId}/tasks/${taskId}`, {
+    method: "DELETE",
+  });
+}

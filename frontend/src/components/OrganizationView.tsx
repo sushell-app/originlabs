@@ -129,7 +129,7 @@ export default function OrganizationView({
 
   if (!organization) {
     return (
-      <div className="rounded-xl border border-[#26262B] bg-[#141417] p-6 text-xs text-[#A1A1AA]">
+      <div className="rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] p-6 text-xs text-[#A1A1AA]">
         No hay ninguna organización seleccionada.
       </div>
     );

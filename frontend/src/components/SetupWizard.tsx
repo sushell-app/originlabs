@@ -66,8 +66,8 @@ export default function SetupWizard({
   }
 
   return (
-    <div className="min-h-screen bg-[#0E0E10] text-[#F4F4F6] flex items-center justify-center p-6">
-      <div className="w-full max-w-lg rounded-2xl border border-[#26262B] bg-[#141417] p-7">
+    <div className="min-h-screen bg-[#161618] text-[#F4F4F5] flex items-center justify-center p-6">
+      <div className="w-full max-w-lg rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] p-7">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-[#7C5CFF] flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]">

@@ -149,7 +149,7 @@ export default function NotificationsView({
 
       {/* Estado de versión */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-xl border border-[#26262B] bg-[#141417] p-4">
+        <div className="rounded-xl border border-[#2D2D32] bg-[#1E1E21] p-4">
           <p className="text-xs text-[#A1A1AA]">Versión instalada</p>
           <p className="text-xl font-semibold text-[#F4F4F6] mt-2 tabular-nums">
             {updateStatus?.current_version ?? "0.1.0-alpha"}

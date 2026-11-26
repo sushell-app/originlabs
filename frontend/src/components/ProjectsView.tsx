@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
+  Folder,
   FolderGit2,
   GitBranch,
   KeyRound,
   Link2,
   Lock,
+  MoreVertical,
   Plus,
   RefreshCw,
+  Search,
   Trash2,
   Users,
 } from "lucide-react";
@@ -37,14 +40,17 @@ import {
   type WorkspaceClassType,
 } from "../lib/api";
 
+export type ProjectsFilterTab = "all" | "github" | "gitlab" | "internal" | "connections";
+
 interface ProjectsViewProps {
   organization: OrganizationWithRole | null;
   projects: ProjectPublic[];
   isInstanceAdmin: boolean;
+  activeTab: ProjectsFilterTab;
+  onChangeTab: (tab: ProjectsFilterTab) => void;
   onRefreshProjects: () => Promise<void>;
 }
 
-type ProjectsSectionTab = "proyectos" | "conexiones";
 type ProjectDetailTab = "resumen" | "env" | "equipo";
 
 function slugify(value: string): string {
@@ -73,13 +79,15 @@ export default function ProjectsView({
   organization,
   projects,
   isInstanceAdmin,
+  activeTab,
+  onChangeTab,
   onRefreshProjects,
 }: ProjectsViewProps) {
-  const [mainTab, setMainTab] = useState<ProjectsSectionTab>("proyectos");
   const [detailTab, setDetailTab] = useState<ProjectDetailTab>("resumen");
   const [connections, setConnections] = useState<GitConnectionPublic[]>([]);
   const [orgMembers, setOrgMembers] = useState<OrganizationMemberPublic[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [projectMembers, setProjectMembers] = useState<ProjectMemberPublic[]>([]);
   const [envVars, setEnvVars] = useState<ProjectEnvVarPublic[]>([]);
@@ -122,8 +130,23 @@ export default function ProjectsView({
     organization?.role === "admin";
   const canCreateProject = canManageOrg || organization?.role === "developer";
 
+  const filteredProjects = projects.filter((proj) => {
+    if (activeTab !== "all" && activeTab !== "connections" && proj.git_provider !== activeTab) {
+      return false;
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      return (
+        proj.name.toLowerCase().includes(q) ||
+        proj.slug.toLowerCase().includes(q) ||
+        (proj.repo_full_name ?? "").toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
   const selectedProject =
-    projects.find((p) => p.id === selectedProjectId) ?? projects[0] ?? null;
+    filteredProjects.find((p) => p.id === selectedProjectId) ?? filteredProjects[0] ?? null;
 
   const loadOrgResources = useCallback(async () => {
     if (!organization) return;
@@ -168,10 +191,10 @@ export default function ProjectsView({
   }, [loadOrgResources]);
 
   useEffect(() => {
-    if (projects.length > 0 && !projects.some((p) => p.id === selectedProjectId)) {
-      setSelectedProjectId(projects[0].id);
+    if (filteredProjects.length > 0 && !filteredProjects.some((p) => p.id === selectedProjectId)) {
+      setSelectedProjectId(filteredProjects[0].id);
     }
-  }, [projects, selectedProjectId]);
+  }, [filteredProjects, selectedProjectId]);
 
   useEffect(() => {
     void loadProjectDetails();
@@ -249,6 +272,7 @@ export default function ProjectsView({
       setProjRepoName("");
       setProjRepoUrl("");
       setCreateOpen(false);
+      onChangeTab("all");
       setSelectedProjectId(created.id);
       await onRefreshProjects();
     } catch (err: unknown) {
@@ -321,61 +345,32 @@ export default function ProjectsView({
 
   if (!organization) {
     return (
-      <div className="rounded-xl border border-[#26262B] bg-[#141417] p-6 text-xs text-[#A1A1AA]">
+      <div className="rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] p-6 text-xs text-[#A1A1AA]">
         Selecciona una organización para gestionar proyectos y repositorios.
       </div>
     );
   }
 
+  const recentProjects = projects.slice(0, 3);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Cabecera estilo Imagen 3 */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#F4F4F6]">
-            Projects y Repositorios
-          </h1>
-          <p className="text-sm text-[#A1A1AA] mt-1">
-            Módulo 4 · Conecta GitHub, GitLab o OriginLabs Git y gestiona equipos y variables cifradas.
-          </p>
-        </div>
+        <h1 className="text-xl font-semibold tracking-tight text-[#F4F4F5]">
+          {activeTab === "connections" ? "Conexiones Git" : "All projects"}
+        </h1>
 
-        <div className="flex items-center gap-2">
-          <div className="inline-flex p-1 rounded-lg bg-[#141417] border border-[#26262B] text-xs">
-            <button
-              type="button"
-              onClick={() => setMainTab("proyectos")}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
-                mainTab === "proyectos"
-                  ? "bg-[#232329] text-[#F4F4F6] border border-[#323238]"
-                  : "text-[#A1A1AA] hover:text-[#F4F4F6] border border-transparent"
-              }`}
-            >
-              Proyectos ({projects.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setMainTab("conexiones")}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
-                mainTab === "conexiones"
-                  ? "bg-[#232329] text-[#F4F4F6] border border-[#323238]"
-                  : "text-[#A1A1AA] hover:text-[#F4F4F6] border border-transparent"
-              }`}
-            >
-              Conexiones Git ({connections.length})
-            </button>
-          </div>
-
-          {mainTab === "proyectos" && canCreateProject && (
-            <button
-              type="button"
-              onClick={() => setCreateOpen((prev) => !prev)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#7C5CFF] hover:bg-[#8B6BFF] px-3 py-2 text-xs font-semibold text-white transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Nuevo proyecto
-            </button>
-          )}
-        </div>
+        {canCreateProject && (
+          <button
+            type="button"
+            onClick={() => setCreateOpen((prev) => !prev)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#3F3F46] bg-[#2B2B30] hover:bg-[#35353B] px-3.5 py-1.5 text-xs font-medium text-[#F4F4F5] transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New project
+          </button>
+        )}
       </div>
 
       {error && (
@@ -384,113 +379,339 @@ export default function ProjectsView({
         </div>
       )}
 
-      {mainTab === "conexiones" && (
-        <div className="space-y-6">
-          {canManageOrg && (
-            <form
-              onSubmit={handleCreateConnection}
-              className="rounded-xl border border-[#26262B] bg-[#141417] p-5 space-y-4"
-            >
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#F4F4F6]">
-                <Link2 className="h-4 w-4 text-[#C4B5FD]" />
-                Conectar proveedor Git
+      {/* Recent projects (tarjetas horizontales estilo Imagen 3) */}
+      {recentProjects.length > 0 && activeTab !== "connections" && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-[#F4F4F5]">Recent projects</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            {recentProjects.map((proj) => {
+              const active = selectedProject?.id === proj.id;
+              return (
+                <button
+                  key={proj.id}
+                  type="button"
+                  onClick={() => setSelectedProjectId(proj.id)}
+                  className={`rounded-xl border p-4 text-left transition-colors flex items-center justify-between gap-3 ${
+                    active
+                      ? "border-[#3F3F46] bg-[#242429]"
+                      : "border-[#2D2D32] bg-[#1E1E21] hover:border-[#3A3A42]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="h-10 w-10 rounded-lg bg-[#2A2A2F] border border-[#38383E] flex items-center justify-center shrink-0">
+                      <Folder className="h-5 w-5 text-[#D4D4D8]" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[#F4F4F5] truncate">{proj.name}</p>
+                      <p className="text-xs text-[#71717A] truncate mt-0.5">
+                        {providerLabel(proj.git_provider)} · {proj.default_branch}
+                      </p>
+                    </div>
+                  </div>
+                  <MoreVertical className="h-4 w-4 text-[#71717A] shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Formulario Nuevo Proyecto */}
+      {createOpen && canCreateProject && (
+        <form
+          onSubmit={handleCreateProject}
+          className="rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] p-5 space-y-4"
+        >
+          <div className="text-sm font-medium text-[#F4F4F5]">Crear nuevo proyecto</div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] text-[#A1A1AA] mb-1">Nombre</label>
+              <input
+                type="text"
+                required
+                minLength={2}
+                value={projName}
+                onChange={(e) => {
+                  setProjName(e.target.value);
+                  if (!projSlugTouched) setProjSlug(slugify(e.target.value));
+                }}
+                placeholder="Core Backend"
+                className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-[#A1A1AA] mb-1">Slug</label>
+              <input
+                type="text"
+                required
+                pattern="^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$"
+                value={projSlug}
+                onChange={(e) => {
+                  setProjSlugTouched(true);
+                  setProjSlug(e.target.value);
+                }}
+                placeholder="core-backend"
+                className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-[#A1A1AA] mb-1">
+                Clase de workspace (ESTIMADO)
+              </label>
+              <select
+                value={projClass}
+                onChange={(e) => setProjClass(e.target.value as WorkspaceClassType)}
+                className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+              >
+                <option value="light">Ligero (1 vCPU · 2 GB)</option>
+                <option value="standard">Estándar (2 vCPU · 4 GB)</option>
+                <option value="heavy">Pesado (4 vCPU · 8 GB)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[11px] text-[#A1A1AA] mb-1">
+                Conexión Git (opcional)
+              </label>
+              <select
+                value={projConnId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setProjConnId(id);
+                  const found = connections.find((c) => c.id === id);
+                  if (found) setProjProvider(found.provider);
+                  void handleLoadRepos(id);
+                }}
+                className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+              >
+                <option value="">Manual / sin conexión</option>
+                {connections.map((conn) => (
+                  <option key={conn.id} value={conn.id}>
+                    {conn.name} ({providerLabel(conn.provider)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {remoteRepos.length > 0 ? (
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] text-[#A1A1AA] mb-1">
+                  Seleccionar repositorio
+                </label>
+                <select
+                  value={projRepoUrl}
+                  onChange={(e) => {
+                    const selected = remoteRepos.find((r) => r.clone_url === e.target.value);
+                    if (selected) {
+                      setProjRepoName(selected.full_name);
+                      setProjRepoUrl(selected.clone_url);
+                      setProjBranch(selected.default_branch);
+                    }
+                  }}
+                  className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+                >
+                  <option value="">-- Elegir repositorio --</option>
+                  {remoteRepos.map((repo) => (
+                    <option key={repo.clone_url} value={repo.clone_url}>
+                      {repo.full_name} ({repo.default_branch})
+                    </option>
+                  ))}
+                </select>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            ) : (
+              <>
                 <div>
-                  <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                    Proveedor
+                  <label className="block text-[11px] text-[#A1A1AA] mb-1">
+                    URL https:// del repositorio
                   </label>
-                  <select
-                    value={connProvider}
-                    onChange={(e) => setConnProvider(e.target.value as GitProviderType)}
-                    className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                  >
-                    <option value="github">GitHub</option>
-                    <option value="gitlab">GitLab</option>
-                    <option value="internal">OriginLabs Git (interno)</option>
-                  </select>
+                  <input
+                    type="url"
+                    value={projRepoUrl}
+                    onChange={(e) => setProjRepoUrl(e.target.value)}
+                    placeholder="https://github.com/org/repo.git"
+                    className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+                  />
                 </div>
-
                 <div>
-                  <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                    Nombre descriptivo
+                  <label className="block text-[11px] text-[#A1A1AA] mb-1">
+                    Rama por defecto
                   </label>
                   <input
                     type="text"
                     required
-                    minLength={2}
-                    value={connName}
-                    onChange={(e) => setConnName(e.target.value)}
-                    placeholder="GitHub Sushell"
-                    className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
+                    value={projBranch}
+                    onChange={(e) => setProjBranch(e.target.value)}
+                    placeholder="main"
+                    className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
                   />
                 </div>
+              </>
+            )}
+          </div>
 
-                <div>
-                  <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                    URL base (opcional)
-                  </label>
-                  <input
-                    type="url"
-                    value={connBaseUrl}
-                    onChange={(e) => setConnBaseUrl(e.target.value)}
-                    placeholder={
-                      connProvider === "github"
-                        ? "https://api.github.com"
-                        : connProvider === "gitlab"
-                          ? "https://gitlab.com"
-                          : "http://originlabs-git.internal"
-                    }
-                    className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                  />
-                </div>
+          <div className="flex items-center justify-between gap-3">
+            <input
+              type="text"
+              value={projDesc}
+              onChange={(e) => setProjDesc(e.target.value)}
+              placeholder="Descripción breve (opcional)"
+              className="flex-1 rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+            />
+            {loadingRepos && (
+              <span className="text-xs text-[#A1A1AA] flex items-center gap-1">
+                <RefreshCw className="h-3 w-3 animate-spin" /> Cargando...
+              </span>
+            )}
+            <button
+              type="submit"
+              className="rounded-lg border border-[#3F3F46] bg-[#2B2B30] hover:bg-[#35353B] px-4 py-2 text-xs font-medium text-[#F4F4F5]"
+            >
+              Guardar proyecto
+            </button>
+          </div>
+        </form>
+      )}
 
-                <div>
-                  <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                    Personal Access Token
-                  </label>
-                  <input
-                    type="password"
-                    required={connProvider !== "internal"}
-                    value={connToken}
-                    onChange={(e) => setConnToken(e.target.value)}
-                    placeholder={connProvider === "internal" ? "No requerido aún" : "Token de acceso personal"}
-                    className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                  />
-                </div>
-              </div>
+      {/* Barra de Tabs con subrayado blanco + Buscador estilo Imagen 3 */}
+      <section className="space-y-4">
+        <div className="border-b border-[#2C2C31] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-5 text-xs">
+            {(
+              [
+                { id: "all", label: "View all" },
+                { id: "github", label: "GitHub" },
+                { id: "gitlab", label: "GitLab" },
+                { id: "internal", label: "OriginLabs Git" },
+                { id: "connections", label: `Conexiones Git (${connections.length})` },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onChangeTab(tab.id)}
+                className={`pb-2.5 -mb-px font-medium transition-colors border-b-2 ${
+                  activeTab === tab.id
+                    ? "border-[#F4F4F5] text-[#F4F4F5]"
+                    : "border-transparent text-[#71717A] hover:text-[#A1A1AA]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                <label className="inline-flex items-center gap-2 text-xs text-[#A1A1AA]">
-                  <input
-                    type="checkbox"
-                    checked={connVerify}
-                    onChange={(e) => setConnVerify(e.target.checked)}
-                    className="rounded border-[#323238] bg-[#18181B]"
-                  />
-                  Verificar credenciales contra el proveedor antes de guardar (cifrado AES/Fernet)
-                </label>
-
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#7C5CFF] hover:bg-[#8B6BFF] px-4 py-2 text-xs font-semibold text-white transition-colors"
-                >
-                  Guardar conexión
-                </button>
-              </div>
-            </form>
-          )}
-
-          <section className="rounded-xl border border-[#26262B] bg-[#141417] overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-[#26262B] flex items-center justify-between">
-              <span className="text-sm font-semibold text-[#F4F4F6]">Conexiones activas</span>
-              <span className="text-xs text-[#71717A] tabular-nums">{connections.length}</span>
+          {activeTab !== "connections" && (
+            <div className="relative pb-2">
+              <Search className="h-3.5 w-3.5 text-[#71717A] absolute left-2.5 top-2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar proyectos..."
+                className="w-56 rounded-lg bg-[#1C1C1F] border border-[#2C2C31] focus:border-[#3A3A42] focus:outline-none pl-8 pr-3 py-1.5 text-xs text-[#F4F4F5] placeholder:text-[#71717A]"
+              />
             </div>
-            <div className="divide-y divide-[#26262B]">
+          )}
+        </div>
+
+        {/* Vista Conexiones Git */}
+        {activeTab === "connections" && (
+          <div className="space-y-5">
+            {canManageOrg && (
+              <form
+                onSubmit={handleCreateConnection}
+                className="rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] p-5 space-y-4"
+              >
+                <div className="flex items-center gap-2 text-sm font-medium text-[#F4F4F5]">
+                  <Link2 className="h-4 w-4 text-[#A1A1AA]" />
+                  Conectar proveedor Git
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-[#A1A1AA] mb-1">Proveedor</label>
+                    <select
+                      value={connProvider}
+                      onChange={(e) => setConnProvider(e.target.value as GitProviderType)}
+                      className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+                    >
+                      <option value="github">GitHub</option>
+                      <option value="gitlab">GitLab</option>
+                      <option value="internal">OriginLabs Git (interno)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[#A1A1AA] mb-1">Nombre</label>
+                    <input
+                      type="text"
+                      required
+                      minLength={2}
+                      value={connName}
+                      onChange={(e) => setConnName(e.target.value)}
+                      placeholder="GitHub Equipo"
+                      className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[#A1A1AA] mb-1">
+                      URL base (opcional)
+                    </label>
+                    <input
+                      type="url"
+                      value={connBaseUrl}
+                      onChange={(e) => setConnBaseUrl(e.target.value)}
+                      placeholder={
+                        connProvider === "github"
+                          ? "https://api.github.com"
+                          : connProvider === "gitlab"
+                            ? "https://gitlab.com"
+                            : "http://originlabs-git.internal"
+                      }
+                      className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[#A1A1AA] mb-1">
+                      Personal Access Token
+                    </label>
+                    <input
+                      type="password"
+                      required={connProvider !== "internal"}
+                      value={connToken}
+                      onChange={(e) => setConnToken(e.target.value)}
+                      placeholder={
+                        connProvider === "internal" ? "No requerido aún" : "Token de acceso"
+                      }
+                      className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-2 text-xs text-[#F4F4F5]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <label className="inline-flex items-center gap-2 text-xs text-[#A1A1AA]">
+                    <input
+                      type="checkbox"
+                      checked={connVerify}
+                      onChange={(e) => setConnVerify(e.target.checked)}
+                    />
+                    Verificar credenciales antes de cifrar en PostgreSQL
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-[#3F3F46] bg-[#2B2B30] hover:bg-[#35353B] px-4 py-2 text-xs font-medium text-[#F4F4F5]"
+                  >
+                    Guardar conexión
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] divide-y divide-[#2C2C31]">
               {connections.length === 0 ? (
-                <div className="px-5 py-6 text-xs text-[#71717A]">
-                  Aún no hay conexiones Git configuradas en esta organización.
+                <div className="p-8 text-center text-xs text-[#71717A]">
+                  Sin conexiones Git configuradas todavía.
                 </div>
               ) : (
                 connections.map((conn) => (
@@ -499,9 +720,9 @@ export default function ProjectsView({
                     className="px-5 py-3.5 flex items-center justify-between gap-4 text-xs"
                   >
                     <div>
-                      <p className="font-medium text-[#F4F4F6] flex items-center gap-2">
+                      <p className="font-medium text-[#F4F4F5] flex items-center gap-2">
                         {conn.name}
-                        <span className="px-2 py-0.5 rounded bg-[#1E1E22] border border-[#323238] text-[11px] text-[#C4B5FD]">
+                        <span className="px-2 py-0.5 rounded bg-[#242429] border border-[#323238] text-[11px] text-[#D4D4D8]">
                           {providerLabel(conn.provider)}
                         </span>
                       </p>
@@ -514,8 +735,7 @@ export default function ProjectsView({
                       <button
                         type="button"
                         onClick={() => void handleDeleteConnection(conn.id)}
-                        className="p-1.5 rounded-md text-[#71717A] hover:text-[#FCA5A5] hover:bg-[rgba(239,100,97,0.1)]"
-                        title="Eliminar conexión"
+                        className="p-1.5 rounded-md text-[#71717A] hover:text-[#FCA5A5] hover:bg-[#242429]"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -524,443 +744,296 @@ export default function ProjectsView({
                 ))
               )}
             </div>
-          </section>
-        </div>
-      )}
+          </div>
+        )}
 
-      {mainTab === "proyectos" && (
-        <div className="space-y-6">
-          {createOpen && canCreateProject && (
-            <form
-              onSubmit={handleCreateProject}
-              className="rounded-xl border border-[#26262B] bg-[#141417] p-5 space-y-4"
-            >
-              <div className="text-sm font-semibold text-[#F4F4F6]">Crear nuevo proyecto</div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    minLength={2}
-                    value={projName}
-                    onChange={(e) => {
-                      setProjName(e.target.value);
-                      if (!projSlugTouched) setProjSlug(slugify(e.target.value));
-                    }}
-                    placeholder="API Facturación"
-                    className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                    Slug
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    pattern="^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$"
-                    value={projSlug}
-                    onChange={(e) => {
-                      setProjSlugTouched(true);
-                      setProjSlug(e.target.value);
-                    }}
-                    placeholder="api-facturacion"
-                    className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                    Clase de workspace por defecto (ESTIMADO)
-                  </label>
-                  <select
-                    value={projClass}
-                    onChange={(e) => setProjClass(e.target.value as WorkspaceClassType)}
-                    className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                  >
-                    <option value="light">Ligero (1 vCPU · 2 GB)</option>
-                    <option value="standard">Estándar (2 vCPU · 4 GB)</option>
-                    <option value="heavy">Pesado (4 vCPU · 8 GB)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                    Conexión Git (opcional)
-                  </label>
-                  <select
-                    value={projConnId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setProjConnId(id);
-                      const found = connections.find((c) => c.id === id);
-                      if (found) setProjProvider(found.provider);
-                      void handleLoadRepos(id);
-                    }}
-                    className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                  >
-                    <option value="">Manual / sin conexión</option>
-                    {connections.map((conn) => (
-                      <option key={conn.id} value={conn.id}>
-                        {conn.name} ({providerLabel(conn.provider)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {remoteRepos.length > 0 ? (
-                  <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                      Seleccionar repositorio de la conexión
-                    </label>
-                    <select
-                      value={projRepoUrl}
-                      onChange={(e) => {
-                        const selected = remoteRepos.find((r) => r.clone_url === e.target.value);
-                        if (selected) {
-                          setProjRepoName(selected.full_name);
-                          setProjRepoUrl(selected.clone_url);
-                          setProjBranch(selected.default_branch);
-                        }
-                      }}
-                      className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                    >
-                      <option value="">-- Elegir repositorio --</option>
-                      {remoteRepos.map((repo) => (
-                        <option key={repo.clone_url} value={repo.clone_url}>
-                          {repo.full_name} ({repo.default_branch})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                        URL https:// del repositorio
-                      </label>
-                      <input
-                        type="url"
-                        value={projRepoUrl}
-                        onChange={(e) => setProjRepoUrl(e.target.value)}
-                        placeholder="https://github.com/org/repo.git"
-                        className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
-                        Rama por defecto
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={projBranch}
-                        onChange={(e) => setProjBranch(e.target.value)}
-                        placeholder="main"
-                        className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <input
-                  type="text"
-                  value={projDesc}
-                  onChange={(e) => setProjDesc(e.target.value)}
-                  placeholder="Descripción breve del proyecto (opcional)"
-                  className="flex-1 rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
-                />
-                {loadingRepos && (
-                  <span className="text-xs text-[#A1A1AA] flex items-center gap-1">
-                    <RefreshCw className="h-3 w-3 animate-spin" /> Cargando repos...
-                  </span>
-                )}
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[#7C5CFF] hover:bg-[#8B6BFF] px-4 py-2 text-xs font-semibold text-white"
-                >
-                  Crear proyecto
-                </button>
-              </div>
-            </form>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Lista de proyectos */}
-            <div className="rounded-xl border border-[#26262B] bg-[#141417] overflow-hidden">
-              <div className="px-4 py-3 border-b border-[#26262B] text-xs font-semibold text-[#A1A1AA] uppercase tracking-wider">
-                Proyectos ({projects.length})
-              </div>
-              <div className="divide-y divide-[#26262B]">
-                {projects.length === 0 ? (
-                  <div className="p-4 text-xs text-[#71717A]">
-                    No hay proyectos aún en {organization.name}.
-                  </div>
-                ) : (
-                  projects.map((proj) => {
-                    const active = selectedProject?.id === proj.id;
-                    return (
-                      <button
-                        key={proj.id}
-                        type="button"
-                        onClick={() => setSelectedProjectId(proj.id)}
-                        className={`w-full text-left px-4 py-3 transition-colors ${
-                          active
-                            ? "bg-[rgba(124,92,255,0.14)] border-l-2 border-l-[#8B6BFF]"
-                            : "hover:bg-[#18181B]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium text-[#F4F4F6] truncate">
-                            {proj.name}
-                          </span>
-                          <span className="text-[10px] rounded bg-[#1E1E22] border border-[#26262B] px-1.5 py-0.5 text-[#C4B5FD]">
-                            {providerLabel(proj.git_provider)}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[#71717A] truncate mt-1">
-                          {proj.repo_full_name ?? proj.slug}
-                        </p>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
+        {/* Empty State estilo Imagen 3 o Lista + Detalle */}
+        {activeTab !== "connections" && filteredProjects.length === 0 && (
+          <div className="rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] py-16 px-6 text-center space-y-4">
+            <div className="h-12 w-12 rounded-xl bg-[#2A2A2F] border border-[#38383E] flex items-center justify-center mx-auto">
+              <Folder className="h-6 w-6 text-[#D4D4D8]" />
             </div>
-
-            {/* Detalle del proyecto seleccionado */}
-            <div className="lg:col-span-2 rounded-xl border border-[#26262B] bg-[#141417] p-5">
-              {!selectedProject ? (
-                <div className="text-xs text-[#71717A] py-8 text-center">
-                  Crea o selecciona un proyecto para ver su repositorio, equipo y variables cifradas.
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-[#26262B]">
-                    <div>
-                      <h2 className="text-base font-semibold text-[#F4F4F6] flex items-center gap-2">
-                        <FolderGit2 className="h-4 w-4 text-[#C4B5FD]" />
-                        {selectedProject.name}
-                      </h2>
-                      <p className="text-xs text-[#71717A] mt-0.5">
-                        {selectedProject.description || `Slug: ${selectedProject.slug}`}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="inline-flex p-0.5 rounded-lg bg-[#0E0E10] border border-[#26262B] text-xs">
-                        {(
-                          [
-                            { id: "resumen", label: "Resumen" },
-                            { id: "env", label: `Variables (${envVars.length})` },
-                            { id: "equipo", label: `Equipo (${projectMembers.length})` },
-                          ] as const
-                        ).map((tab) => (
-                          <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setDetailTab(tab.id)}
-                            className={`px-2.5 py-1 rounded-md font-medium ${
-                              detailTab === tab.id
-                                ? "bg-[#232329] text-[#F4F4F6]"
-                                : "text-[#71717A] hover:text-[#A1A1AA]"
-                            }`}
-                          >
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
-
-                      {canManageOrg && (
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteProject(selectedProject.id)}
-                          className="p-1.5 rounded-md text-[#71717A] hover:text-[#FCA5A5] hover:bg-[rgba(239,100,97,0.1)]"
-                          title="Eliminar proyecto"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {detailTab === "resumen" && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div className="rounded-lg border border-[#26262B] bg-[#18181B] p-3.5">
-                        <p className="text-[#71717A]">Repositorio</p>
-                        <p className="text-[#F4F4F6] font-medium mt-1 break-all">
-                          {selectedProject.repo_clone_url ?? "Sin URL configurada"}
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-[#26262B] bg-[#18181B] p-3.5">
-                        <p className="text-[#71717A] flex items-center gap-1">
-                          <GitBranch className="h-3.5 w-3.5" /> Rama y clase por defecto
-                        </p>
-                        <p className="text-[#F4F4F6] font-medium mt-1">
-                          {selectedProject.default_branch} ·{" "}
-                          {workspaceClassLabel(selectedProject.default_workspace_class)}
-                        </p>
-                      </div>
-                      <div className="sm:col-span-2 rounded-lg border border-[rgba(139,107,255,0.28)] bg-[rgba(124,92,255,0.08)] p-3.5 text-[#C4B5FD]">
-                        Listo para lanzar entornos aislados en el Módulo 5 (Workspaces `code-server`
-                        + terminal `xterm.js`).
-                      </div>
-                    </div>
-                  )}
-
-                  {detailTab === "env" && (
-                    <div className="space-y-4">
-                      <form onSubmit={handleUpsertEnv} className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end">
-                        <div>
-                          <label className="block text-[11px] text-[#A1A1AA] mb-1">KEY</label>
-                          <input
-                            type="text"
-                            required
-                            pattern="^[A-Z_][A-Z0-9_]{0,119}$"
-                            value={envKey}
-                            onChange={(e) => setEnvKey(e.target.value.toUpperCase())}
-                            placeholder="DATABASE_URL"
-                            className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-1.5 text-xs text-[#F4F4F6]"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="block text-[11px] text-[#A1A1AA] mb-1">Valor</label>
-                          <input
-                            type={envSecret ? "password" : "text"}
-                            required
-                            value={envValue}
-                            onChange={(e) => setEnvValue(e.target.value)}
-                            placeholder="Valor cifrado en reposo"
-                            className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-1.5 text-xs text-[#F4F4F6]"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <label className="inline-flex items-center gap-1.5 text-xs text-[#A1A1AA]">
-                            <input
-                              type="checkbox"
-                              checked={envSecret}
-                              onChange={(e) => setEnvSecret(e.target.checked)}
-                            />
-                            <Lock className="h-3 w-3" /> Secreto
-                          </label>
-                          <button
-                            type="submit"
-                            className="rounded-lg bg-[#7C5CFF] hover:bg-[#8B6BFF] px-3 py-1.5 text-xs font-semibold text-white"
-                          >
-                            Guardar
-                          </button>
-                        </div>
-                      </form>
-
-                      <div className="divide-y divide-[#26262B] rounded-lg border border-[#26262B] bg-[#18181B]">
-                        {envVars.length === 0 ? (
-                          <p className="p-3.5 text-xs text-[#71717A]">
-                            No hay variables configuradas para este proyecto.
-                          </p>
-                        ) : (
-                          envVars.map((env) => (
-                            <div
-                              key={env.id}
-                              className="px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <KeyRound className="h-3.5 w-3.5 text-[#71717A] shrink-0" />
-                                <code className="text-[#F4F4F6] font-medium">{env.key}</code>
-                                <span className="text-[#71717A] truncate">{env.masked_value}</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => void handleDeleteEnv(env.id)}
-                                className="p-1 text-[#71717A] hover:text-[#FCA5A5]"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {detailTab === "equipo" && (
-                    <div className="space-y-4">
-                      <form onSubmit={handleAssignMember} className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end">
-                        <div className="sm:col-span-2">
-                          <label className="block text-[11px] text-[#A1A1AA] mb-1">
-                            Miembro de {organization.name}
-                          </label>
-                          <select
-                            value={assignUserId}
-                            onChange={(e) => setAssignUserId(e.target.value)}
-                            className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-1.5 text-xs text-[#F4F4F6]"
-                          >
-                            {orgMembers.map((m) => (
-                              <option key={m.user_id} value={m.user_id}>
-                                {m.full_name} ({m.email})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] text-[#A1A1AA] mb-1">Rol</label>
-                          <select
-                            value={assignRole}
-                            onChange={(e) => setAssignRole(e.target.value as ProjectRole)}
-                            className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-1.5 text-xs text-[#F4F4F6]"
-                          >
-                            <option value="maintainer">maintainer</option>
-                            <option value="developer">developer</option>
-                            <option value="viewer">viewer</option>
-                          </select>
-                        </div>
-                        <button
-                          type="submit"
-                          className="rounded-lg bg-[#7C5CFF] hover:bg-[#8B6BFF] px-3 py-1.5 text-xs font-semibold text-white"
-                        >
-                          Asignar
-                        </button>
-                      </form>
-
-                      <div className="divide-y divide-[#26262B] rounded-lg border border-[#26262B] bg-[#18181B]">
-                        {projectMembers.map((pm) => (
-                          <div
-                            key={pm.id}
-                            className="px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Users className="h-3.5 w-3.5 text-[#71717A]" />
-                              <span className="text-[#F4F4F6] font-medium">{pm.full_name}</span>
-                              <span className="text-[#71717A]">{pm.email}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 rounded bg-[#232329] text-[#C4B5FD] capitalize">
-                                {pm.role}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => void handleRemoveProjectMember(pm.id)}
-                                className="p-1 text-[#71717A] hover:text-[#FCA5A5]"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-[#F4F4F5]">No projects found</p>
+              <p className="text-xs text-[#71717A] max-w-sm mx-auto">
+                {searchQuery
+                  ? `Tu búsqueda "${searchQuery}" no coincide con ningún proyecto.`
+                  : "Crea tu primer proyecto para conectar repositorios, variables y workspaces."}
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2.5 pt-1">
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="rounded-lg border border-[#2E2E34] bg-[#202023] hover:bg-[#2A2A2F] px-3.5 py-1.5 text-xs font-medium text-[#F4F4F5]"
+                >
+                  Clear search
+                </button>
+              )}
+              {canCreateProject && (
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#3F3F46] bg-[#2B2B30] hover:bg-[#35353B] px-3.5 py-1.5 text-xs font-medium text-[#F4F4F5]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  New project
+                </button>
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {activeTab !== "connections" && filteredProjects.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="lg:col-span-4 rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] overflow-hidden divide-y divide-[#2C2C31]">
+              {filteredProjects.map((proj) => {
+                const active = selectedProject?.id === proj.id;
+                return (
+                  <button
+                    key={proj.id}
+                    type="button"
+                    onClick={() => setSelectedProjectId(proj.id)}
+                    className={`w-full text-left px-4 py-3.5 transition-colors flex items-center justify-between gap-2 ${
+                      active ? "bg-[#2A2A2F]" : "hover:bg-[#242429]/60"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[#F4F4F5] truncate">{proj.name}</p>
+                      <p className="text-[11px] text-[#71717A] truncate mt-0.5">
+                        {proj.repo_full_name ?? proj.slug}
+                      </p>
+                    </div>
+                    <span className="text-[10px] rounded bg-[#242429] border border-[#323238] px-2 py-0.5 text-[#D4D4D8] shrink-0">
+                      {providerLabel(proj.git_provider)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedProject && (
+              <div className="lg:col-span-8 rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] p-5 space-y-5">
+                <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-[#2C2C31]">
+                  <div>
+                    <h3 className="text-base font-semibold text-[#F4F4F5] flex items-center gap-2">
+                      <FolderGit2 className="h-4 w-4 text-[#D4D4D8]" />
+                      {selectedProject.name}
+                    </h3>
+                    <p className="text-xs text-[#71717A] mt-0.5">
+                      {selectedProject.description || `Slug: ${selectedProject.slug}`}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex p-0.5 rounded-lg bg-[#161618] border border-[#2C2C31] text-xs">
+                      {(
+                        [
+                          { id: "resumen", label: "Resumen" },
+                          { id: "env", label: `Variables (${envVars.length})` },
+                          { id: "equipo", label: `Equipo (${projectMembers.length})` },
+                        ] as const
+                      ).map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setDetailTab(tab.id)}
+                          className={`px-2.5 py-1 rounded-md font-medium ${
+                            detailTab === tab.id
+                              ? "bg-[#2A2A2F] text-[#F4F4F5]"
+                              : "text-[#71717A] hover:text-[#A1A1AA]"
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {canManageOrg && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteProject(selectedProject.id)}
+                        className="p-1.5 rounded-md text-[#71717A] hover:text-[#FCA5A5] hover:bg-[#242429]"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {detailTab === "resumen" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="rounded-xl border border-[#2D2D32] bg-[#1E1E21] p-3.5">
+                      <p className="text-[#71717A]">Repositorio</p>
+                      <p className="text-[#F4F4F5] font-medium mt-1 break-all">
+                        {selectedProject.repo_clone_url ?? "Sin URL configurada"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-[#2D2D32] bg-[#1E1E21] p-3.5">
+                      <p className="text-[#71717A] flex items-center gap-1">
+                        <GitBranch className="h-3.5 w-3.5" /> Rama y clase por defecto
+                      </p>
+                      <p className="text-[#F4F4F5] font-medium mt-1">
+                        {selectedProject.default_branch} ·{" "}
+                        {workspaceClassLabel(selectedProject.default_workspace_class)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {detailTab === "env" && (
+                  <div className="space-y-4">
+                    <form
+                      onSubmit={handleUpsertEnv}
+                      className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end"
+                    >
+                      <div>
+                        <label className="block text-[11px] text-[#A1A1AA] mb-1">KEY</label>
+                        <input
+                          type="text"
+                          required
+                          pattern="^[A-Z_][A-Z0-9_]{0,119}$"
+                          value={envKey}
+                          onChange={(e) => setEnvKey(e.target.value.toUpperCase())}
+                          placeholder="DATABASE_URL"
+                          className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-1.5 text-xs text-[#F4F4F5]"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] text-[#A1A1AA] mb-1">Valor</label>
+                        <input
+                          type={envSecret ? "password" : "text"}
+                          required
+                          value={envValue}
+                          onChange={(e) => setEnvValue(e.target.value)}
+                          placeholder="Valor cifrado en reposo"
+                          className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-1.5 text-xs text-[#F4F4F5]"
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="inline-flex items-center gap-1.5 text-xs text-[#A1A1AA]">
+                          <input
+                            type="checkbox"
+                            checked={envSecret}
+                            onChange={(e) => setEnvSecret(e.target.checked)}
+                          />
+                          <Lock className="h-3 w-3" /> Secreto
+                        </label>
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-[#3F3F46] bg-[#2B2B30] hover:bg-[#35353B] px-3 py-1.5 text-xs font-medium text-[#F4F4F5]"
+                        >
+                          Guardar
+                        </button>
+                      </div>
+                    </form>
+
+                    <div className="divide-y divide-[#2C2C31] rounded-xl border border-[#2D2D32] bg-[#1E1E21]">
+                      {envVars.length === 0 ? (
+                        <p className="p-3.5 text-xs text-[#71717A]">
+                          No hay variables configuradas.
+                        </p>
+                      ) : (
+                        envVars.map((env) => (
+                          <div
+                            key={env.id}
+                            className="px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <KeyRound className="h-3.5 w-3.5 text-[#71717A] shrink-0" />
+                              <code className="text-[#F4F4F5] font-medium">{env.key}</code>
+                              <span className="text-[#71717A] truncate">{env.masked_value}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteEnv(env.id)}
+                              className="p-1 text-[#71717A] hover:text-[#FCA5A5]"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {detailTab === "equipo" && (
+                  <div className="space-y-4">
+                    <form
+                      onSubmit={handleAssignMember}
+                      className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end"
+                    >
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] text-[#A1A1AA] mb-1">
+                          Miembro de {organization.name}
+                        </label>
+                        <select
+                          value={assignUserId}
+                          onChange={(e) => setAssignUserId(e.target.value)}
+                          className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-1.5 text-xs text-[#F4F4F5]"
+                        >
+                          {orgMembers.map((m) => (
+                            <option key={m.user_id} value={m.user_id}>
+                              {m.full_name} ({m.email})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-[#A1A1AA] mb-1">Rol</label>
+                        <select
+                          value={assignRole}
+                          onChange={(e) => setAssignRole(e.target.value as ProjectRole)}
+                          className="w-full rounded-lg bg-[#161618] border border-[#2C2C31] px-3 py-1.5 text-xs text-[#F4F4F5]"
+                        >
+                          <option value="maintainer">maintainer</option>
+                          <option value="developer">developer</option>
+                          <option value="viewer">viewer</option>
+                        </select>
+                      </div>
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-[#3F3F46] bg-[#2B2B30] hover:bg-[#35353B] px-3 py-1.5 text-xs font-medium text-[#F4F4F5]"
+                      >
+                        Asignar
+                      </button>
+                    </form>
+
+                    <div className="divide-y divide-[#2C2C31] rounded-xl border border-[#2D2D32] bg-[#1E1E21]">
+                      {projectMembers.map((pm) => (
+                        <div
+                          key={pm.id}
+                          className="px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Users className="h-3.5 w-3.5 text-[#71717A]" />
+                            <span className="text-[#F4F4F5] font-medium">{pm.full_name}</span>
+                            <span className="text-[#71717A]">{pm.email}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded bg-[#2A2A2F] text-[#D4D4D8] capitalize">
+                              {pm.role}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => void handleRemoveProjectMember(pm.id)}
+                              className="p-1 text-[#71717A] hover:text-[#FCA5A5]"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

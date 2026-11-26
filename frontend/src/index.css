@@ -2,21 +2,19 @@
 
 :root {
   color-scheme: dark;
-  --bg-canvas: #0e0e10;
-  --bg-pane: #141417;
-  --bg-sidebar: #18181b;
-  --bg-card: #17171a;
-  --bg-elevated: #1e1e22;
-  --bg-hover: #232329;
-  --border-subtle: #26262b;
-  --border-strong: #323238;
-  --text-primary: #f4f4f6;
+  --bg-canvas: #161618;
+  --bg-sidebar: #202023;
+  --bg-container: #1c1c1f;
+  --bg-card: #1e1e21;
+  --bg-elevated: #242429;
+  --bg-active: #2a2a2f;
+  --border-subtle: #2c2c31;
+  --border-strong: #3a3a42;
+  --text-primary: #f4f4f5;
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
   --accent-violet: #7c5cff;
   --accent-violet-soft: #8b6bff;
-  --accent-wash: rgba(124, 92, 255, 0.14);
-  --accent-lavender: #c4b5fd;
   --status-emerald: #34d399;
   --status-amber: #fbbf24;
   --status-rose: #ef6461;
@@ -32,7 +30,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: #2e2e34 transparent;
+    scrollbar-color: #323238 transparent;
   }
 }
 

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.core.config import get_settings
 from app.core.database import Base
 from app.modules.audit import models as _audit_models  # noqa: F401
+from app.modules.collab import models as _collab_models  # noqa: F401
 from app.modules.identity import models as _identity_models  # noqa: F401
 from app.modules.projects import models as _projects_models  # noqa: F401
 from app.modules.system import models as _system_models  # noqa: F401

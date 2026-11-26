@@ -59,6 +59,9 @@ export default function AuditView({ organizationId }: AuditViewProps) {
             <option value="org.">Organizaciones (org.*)</option>
             <option value="project.">Proyectos (project.*)</option>
             <option value="git.">Conexiones Git (git.*)</option>
+            <option value="knowledge.">Knowledge (knowledge.*)</option>
+            <option value="chat.">Team Chat (chat.*)</option>
+            <option value="task.">Tasks (task.*)</option>
             <option value="system.">Sistema y updates (system.*)</option>
           </select>
 
@@ -79,7 +82,7 @@ export default function AuditView({ organizationId }: AuditViewProps) {
         </div>
       )}
 
-      <div className="rounded-xl border border-[#26262B] bg-[#141417] overflow-x-auto">
+      <div className="rounded-2xl border border-[#2B2B30] bg-[#1C1C1F] overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead className="border-b border-[#26262B] text-[11px] uppercase tracking-wider text-[#71717A]">
             <tr>
