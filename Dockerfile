@@ -1,5 +1,5 @@
 # Stage 1: Build React + TypeScript + Tailwind frontend
-FROM node:22-alpine AS frontend-build
+FROM node:26-alpine AS frontend-build
 
 WORKDIR /frontend
 COPY frontend/package.json ./
