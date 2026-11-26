@@ -125,6 +125,38 @@ async def test_full_api_lifecycle_e2e() -> None:
         assert audit_resp.status_code == 200
         assert len(audit_resp.json()) >= 1
 
+        ws_resp = await client.post(
+            f"/api/v1/organizations/{org_id}/workspaces",
+            json={
+                "project_id": project_id,
+                "name": "API Sandbox",
+                "slug": "api-sandbox",
+                "workspace_class": "light",
+                "idle_timeout_minutes": 45,
+                "auto_start": False,
+            },
+        )
+        assert ws_resp.status_code == 201
+        ws_id = ws_resp.json()["id"]
+        assert (await client.get(f"/api/v1/organizations/{org_id}/workspaces")).status_code == 200
+        assert (
+            await client.delete(f"/api/v1/organizations/{org_id}/workspaces/{ws_id}")
+        ).status_code == 204
+
+        metrics_resp = await client.get("/api/v1/system/metrics")
+        assert metrics_resp.status_code == 200
+        assert len(metrics_resp.json()["admission"]) == 3
+
+        backup_cfg_resp = await client.get("/api/v1/system/backups/config")
+        assert backup_cfg_resp.status_code == 200
+        backup_patch = await client.patch(
+            "/api/v1/system/backups/config",
+            json={"provider": "local", "repository": "/var/backups/ci-test", "enabled": True},
+        )
+        assert backup_patch.status_code == 200
+        assert backup_patch.json()["repository"] == "/var/backups/ci-test"
+        assert (await client.get("/api/v1/system/backups/snapshots")).status_code == 200
+
         updates_resp = await client.get("/api/v1/system/updates")
         assert updates_resp.status_code == 200
         notif_resp = await client.get("/api/v1/system/notifications")

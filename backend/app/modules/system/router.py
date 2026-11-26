@@ -1,5 +1,6 @@
-"""Instance administrator endpoints for update checks and notifications."""
+"""Instance administrator endpoints for updates, notifications, metrics and backups."""
 
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from typing import cast
@@ -14,8 +15,24 @@ from app.core.database import get_db
 from app.modules.audit.service import record_audit_event
 from app.modules.identity.dependencies import get_client_ip, require_instance_admin
 from app.modules.identity.models import User
-from app.modules.system.models import InstanceUpdateState, SystemNotification
+from app.modules.system.backups import (
+    BackupProvider,
+    run_restic_backup,
+    validate_backup_repository,
+)
+from app.modules.system.models import (
+    BackupConfig,
+    BackupSnapshot,
+    InstanceUpdateState,
+    SystemNotification,
+)
+from app.modules.system.monitoring import collect_host_metrics, evaluate_admission
 from app.modules.system.schemas import (
+    AdmissionStatusPublic,
+    BackupConfigPublic,
+    BackupConfigUpdateRequest,
+    BackupSnapshotPublic,
+    HostMetricsResponse,
     NotificationsListResponse,
     ReleaseChannel,
     SystemNotificationPublic,
@@ -27,6 +44,8 @@ from app.modules.system.updates import (
     get_or_create_update_state,
     is_newer_version,
 )
+from app.modules.workspaces.models import Workspace
+from app.modules.workspaces.orchestrator import WORKSPACE_CLASS_SPECS, WorkspaceClass
 
 system_router = APIRouter(prefix="/system", tags=["system-ops"])
 
@@ -56,6 +75,33 @@ def _serialize_update_status(
         has_webhook_secret=bool(state.webhook_encrypted_secret),
         warning=warning,
     )
+
+
+def _serialize_backup_config(config: BackupConfig) -> BackupConfigPublic:
+    return BackupConfigPublic(
+        enabled=config.enabled,
+        provider=cast(BackupProvider, config.provider),
+        repository=config.repository,
+        schedule_cron=config.schedule_cron,
+        retention_daily=config.retention_daily,
+        retention_weekly=config.retention_weekly,
+        has_password=bool(config.encrypted_password),
+        has_s3_credentials=bool(config.encrypted_s3_access_key and config.encrypted_s3_secret_key),
+        last_backup_at=config.last_backup_at,
+        updated_at=config.updated_at,
+    )
+
+
+async def get_or_create_backup_config(db: AsyncSession) -> BackupConfig:
+    """Load singleton BackupConfig row, creating defaults if missing."""
+    config = (
+        await db.execute(select(BackupConfig).where(BackupConfig.id == 1))
+    ).scalar_one_or_none()
+    if config is None:
+        config = BackupConfig(id=1)
+        db.add(config)
+        await db.flush()
+    return config
 
 
 @system_router.get("/updates", response_model=UpdateStatusResponse)
@@ -203,3 +249,167 @@ async def mark_all_notifications_read(
         .values(is_read=True, read_at=datetime.now(UTC))
     )
     await db.commit()
+
+
+@system_router.get("/metrics", response_model=HostMetricsResponse)
+async def get_system_metrics(
+    _: User = Depends(require_instance_admin),
+    db: AsyncSession = Depends(get_db),
+) -> HostMetricsResponse:
+    """Return live host CPU/RAM/disk telemetry and workspace admission evaluation."""
+    running = (
+        await db.execute(select(Workspace).where(Workspace.status == "running"))
+    ).scalars().all()
+    alloc_cpu = sum(
+        WORKSPACE_CLASS_SPECS[cast(WorkspaceClass, ws.workspace_class)].cpu_cores
+        for ws in running
+    )
+    alloc_ram = sum(
+        WORKSPACE_CLASS_SPECS[cast(WorkspaceClass, ws.workspace_class)].ram_mb
+        for ws in running
+    )
+    metrics = await asyncio.to_thread(
+        collect_host_metrics,
+        running_workspaces=len(running),
+        allocated_cpu_cores=alloc_cpu,
+        allocated_ram_mb=alloc_ram,
+    )
+    decisions = [
+        evaluate_admission(metrics, ws_cls)
+        for ws_cls in ("light", "standard", "heavy")
+    ]
+    return HostMetricsResponse(
+        hostname=metrics.hostname,
+        os_name=metrics.os_name,
+        arch=metrics.arch,
+        cpu_cores=metrics.cpu_cores,
+        load_avg_1m=metrics.load_avg_1m,
+        ram_total_mb=metrics.ram_total_mb,
+        ram_available_mb=metrics.ram_available_mb,
+        ram_used_pct=metrics.ram_used_pct,
+        disk_total_gb=metrics.disk_total_gb,
+        disk_free_gb=metrics.disk_free_gb,
+        disk_used_pct=metrics.disk_used_pct,
+        docker_available=metrics.docker_available,
+        running_workspaces=metrics.running_workspaces,
+        allocated_cpu_cores=metrics.allocated_cpu_cores,
+        allocated_ram_mb=metrics.allocated_ram_mb,
+        admission=[
+            AdmissionStatusPublic(
+                workspace_class=item.workspace_class,
+                allowed=item.allowed,
+                severity=item.severity,
+                reason=item.reason,
+            )
+            for item in decisions
+        ],
+    )
+
+
+@system_router.get("/backups/config", response_model=BackupConfigPublic)
+async def get_backup_config(
+    _: User = Depends(require_instance_admin),
+    db: AsyncSession = Depends(get_db),
+) -> BackupConfigPublic:
+    """Return encrypted restic backup configuration (secrets masked)."""
+    config = await get_or_create_backup_config(db)
+    await db.commit()
+    return _serialize_backup_config(config)
+
+
+@system_router.patch("/backups/config", response_model=BackupConfigPublic)
+async def update_backup_config(
+    payload: BackupConfigUpdateRequest,
+    request: Request,
+    admin: User = Depends(require_instance_admin),
+    db: AsyncSession = Depends(get_db),
+) -> BackupConfigPublic:
+    """Update encrypted restic backup repository, credentials and retention."""
+    config = await get_or_create_backup_config(db)
+    next_provider = cast(BackupProvider, payload.provider or config.provider)
+    next_repo = payload.repository if payload.repository is not None else config.repository
+
+    try:
+        validated_repo = validate_backup_repository(next_provider, next_repo)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+    if payload.enabled is not None:
+        config.enabled = payload.enabled
+    config.provider = next_provider
+    config.repository = validated_repo
+    if payload.schedule_cron is not None:
+        config.schedule_cron = payload.schedule_cron.strip()
+    if payload.retention_daily is not None:
+        config.retention_daily = payload.retention_daily
+    if payload.retention_weekly is not None:
+        config.retention_weekly = payload.retention_weekly
+    if payload.password is not None:
+        config.encrypted_password = encrypt_secret(payload.password)
+    if payload.s3_access_key is not None:
+        config.encrypted_s3_access_key = (
+            encrypt_secret(payload.s3_access_key.strip())
+            if payload.s3_access_key.strip()
+            else None
+        )
+    if payload.s3_secret_key is not None:
+        config.encrypted_s3_secret_key = (
+            encrypt_secret(payload.s3_secret_key.strip())
+            if payload.s3_secret_key.strip()
+            else None
+        )
+
+    await record_audit_event(
+        db,
+        action="system.backup_config_updated",
+        resource_type="backup_config",
+        resource_id="1",
+        actor=admin,
+        ip_address=get_client_ip(request),
+        details={"provider": config.provider, "enabled": config.enabled},
+    )
+    await db.commit()
+    await db.refresh(config)
+    return _serialize_backup_config(config)
+
+
+@system_router.get("/backups/snapshots", response_model=list[BackupSnapshotPublic])
+async def list_backup_snapshots(
+    limit: int = Query(default=25, ge=1, le=100),
+    _: User = Depends(require_instance_admin),
+    db: AsyncSession = Depends(get_db),
+) -> list[BackupSnapshot]:
+    """List recent restic backup snapshot runs."""
+    rows = (
+        await db.execute(
+            select(BackupSnapshot)
+            .order_by(desc(BackupSnapshot.started_at))
+            .limit(limit)
+        )
+    ).scalars().all()
+    return list(rows)
+
+
+@system_router.post("/backups/run", response_model=BackupSnapshotPublic)
+async def trigger_manual_backup(
+    request: Request,
+    admin: User = Depends(require_instance_admin),
+    db: AsyncSession = Depends(get_db),
+) -> BackupSnapshot:
+    """Trigger an immediate restic backup snapshot and record execution result."""
+    config = await get_or_create_backup_config(db)
+    snapshot = await run_restic_backup(db, config, trigger="manual")
+    await record_audit_event(
+        db,
+        action="system.backup_triggered",
+        resource_type="backup_snapshot",
+        resource_id=str(snapshot.id),
+        actor=admin,
+        ip_address=get_client_ip(request),
+        details={"status": snapshot.status, "repository": snapshot.repository},
+    )
+    await db.commit()
+    return snapshot

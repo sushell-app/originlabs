@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for System notifications and update state."""
+"""SQLAlchemy ORM models for System notifications, updates and encrypted restic backups."""
 
 import uuid
 from datetime import UTC, datetime
@@ -52,3 +52,43 @@ class InstanceUpdateState(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
     )
+
+
+class BackupConfig(Base):
+    """Singleton encrypted restic backup configuration."""
+
+    __tablename__ = "backup_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    provider: Mapped[str] = mapped_column(String(16), default="local", nullable=False)
+    repository: Mapped[str] = mapped_column(
+        String(500), default="/var/backups/originlabs", nullable=False
+    )
+    schedule_cron: Mapped[str] = mapped_column(String(64), default="0 3 * * *", nullable=False)
+    retention_daily: Mapped[int] = mapped_column(Integer, default=7, nullable=False)
+    retention_weekly: Mapped[int] = mapped_column(Integer, default=4, nullable=False)
+    encrypted_password: Mapped[str | None] = mapped_column(Text, nullable=True)
+    encrypted_s3_access_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    encrypted_s3_secret_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_backup_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+
+class BackupSnapshot(Base):
+    """Execution history log for restic backup snapshots."""
+
+    __tablename__ = "backup_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    status: Mapped[str] = mapped_column(String(24), default="running", index=True, nullable=False)
+    trigger: Mapped[str] = mapped_column(String(24), default="manual", nullable=False)
+    repository: Mapped[str] = mapped_column(String(500), nullable=False)
+    snapshot_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    summary: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True, nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

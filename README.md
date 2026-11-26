@@ -2,213 +2,180 @@
 
 # OriginLabs
 
-**Entorno de trabajo open source y modular que convierte cualquier servidor Linux en un espacio de desarrollo completo para equipos.**
+### Tu entorno de trabajo *self-hosted* completo en un solo servidor y en un solo comando.
+
+Organizaciones, repositorios Git, **Workspaces con IDE en el navegador**, terminal WebSocket, documentación interna, chat de equipo, monitoreo contra saturación y respaldos cifrados — todo gobernado desde una interfaz minimalista oscura lista para producción.
 
 *Un entorno de trabajo. Un comando. Un núcleo útil.*
 
+[![CI](https://github.com/sushell-app/originlabs/actions/workflows/ci.yml/badge.svg)](https://github.com/sushell-app/originlabs/actions/workflows/ci.yml)
+[![Docker Images (GHCR)](https://github.com/sushell-app/originlabs/actions/workflows/docker.yml/badge.svg)](https://github.com/sushell-app/originlabs/actions/workflows/docker.yml)
 [![Licencia AGPL-3.0](https://img.shields.io/badge/Licencia-AGPL--3.0-7C5CFF?style=flat-square)](LICENSE)
 [![Python 3.12 · FastAPI](https://img.shields.io/badge/Backend-Python%203.12%20%C2%B7%20FastAPI-34D399?style=flat-square)](backend/pyproject.toml)
-[![React · TypeScript](https://img.shields.io/badge/Frontend-React%20%C2%B7%20TypeScript%20%C2%B7%20Vite-8B6BFF?style=flat-square)](frontend/package.json)
-[![Docker Compose](https://img.shields.io/badge/Infra-Docker%20%2B%20Caddy%20%2B%20PostgreSQL-26262B?style=flat-square)](compose.prod.yml)
-[![Estado Pre-Beta](https://img.shields.io/badge/Estado-En%20desarrollo%20(Pre--Beta)-FBBF24?style=flat-square)](#estado-actual-camino-a-beta-v01)
+[![React 19 · TypeScript](https://img.shields.io/badge/Frontend-React%2019%20%C2%B7%20TypeScript-8B6BFF?style=flat-square)](frontend/package.json)
+[![Multi-Arch](https://img.shields.io/badge/Docker-linux%2Famd64%20%7C%20arm64-26262B?style=flat-square)](Dockerfile)
 
-[Sitio oficial](https://sushell.com/originlabs) · [Capacidades](#capacidades-principales) · [Consumo y optimización](#requisitos-del-servidor-y-consumo-de-recursos-estimado) · [Seguridad](#nivel-de-seguridad-y-cómo-se-maneja) · [Inicio rápido](#inicio-rápido-en-desarrollo-local) · [Documentación](#documentación-técnica)
+[Instalación en 1 comando](#instalación-en-1-comando-vps-linux) · [Capacidades](#capacidades-principales) · [Arquitectura](#arquitectura) · [Seguridad](#seguridad-en-5-capas) · [Consumo (`ESTIMADO`)](#requisitos-del-servidor-y-consumo-estimado) · [Contenedor único](#imagen-única-para-vps-pequeños-y-paas) · [Desarrollo local](#inicio-rápido-en-desarrollo-local)
 
 </div>
 
 ---
 
-## ¿Qué es OriginLabs?
+## Instalación en 1 comando (VPS Linux)
 
-**OriginLabs** es una plataforma *self-hosted* desarrollada por **Sushell** para que equipos de desarrollo pequeños y medianos dispongan de su propio entorno de trabajo privado: organizaciones, proyectos conectados a GitHub/GitLab y workspaces con IDE y terminal directamente en el navegador, en un solo servidor y listos desde el primer día.
+Compatible con **Ubuntu 22.04 / 24.04 / 26.04 LTS** y **Debian 12 / 13** (`x86_64` y `ARM64`). No requiere Python en el host: toda la plataforma corre aislada en contenedores.
 
-### Capacidades principales
+<table>
+<tr>
+<th>Con dominio propio + HTTPS automático (Let's Encrypt)</th>
+</tr>
+<tr>
+<td>
 
-| Capacidad | Qué resuelve para tu equipo |
-| --- | --- |
-| **Instalación en un comando** | Despliegue automatizado sobre Docker + Compose con proxy inverso y certificados SSL automáticos (Let's Encrypt). |
-| **Organizaciones y RBAC** | Multi-organización, invitaciones por enlace temporal y roles granulares por instancia, organización y proyecto. |
-| **`Projects` (incluido)** | Conexión con **GitHub**, **GitLab** (y contrato preparado para Git interno), gestión de equipos y variables `.env` cifradas. |
-| **`Workspaces` (incluido)** | Entornos aislados con IDE en el navegador (`code-server` / OpenVSCode Server) y terminal interactiva (`xterm.js`). |
-| **Operación integrada** | Auditoría en PostgreSQL, monitoreo contra saturación, respaldos cifrados con `restic` y actualizaciones verificadas. |
-| **Arquitectura modular** | Núcleo útil desde el inicio con base extensible para servicios propios adicionales (post-MVP). |
+```bash
+curl -fsSL https://raw.githubusercontent.com/sushell-app/originlabs/main/installer/install.sh \
+  | sudo bash -s -- --domain panel.tu-dominio.com
+```
 
----
+</td>
+</tr>
+<tr>
+<th>Prueba rápida en IP / localhost (HTTP en puerto 80)</th>
+</tr>
+<tr>
+<td>
 
-## Cómo funciona
+```bash
+curl -fsSL https://raw.githubusercontent.com/sushell-app/originlabs/main/installer/install.sh \
+  | sudo bash -s -- --http-only
+```
 
-Seis pasos desde un servidor vacío hasta tu equipo programando en un solo panel:
+</td>
+</tr>
+</table>
 
-1. **Corres un comando** en tu servidor Linux compatible.
-2. **Abres el panel** en tu dominio propio con **SSL automático** (Let's Encrypt vía Caddy).
-3. **Creas la organización** e invitas a tus colaboradores.
-4. **Conectas tus repositorios** (GitHub / GitLab) y organizas tus proyectos.
-5. **Cada desarrollador abre su workspace:** IDE (`code-server`) + terminal web (`xterm.js`) en el navegador.
-6. **Activas servicios adicionales** del ecosistema cuando el equipo los necesite (post-MVP).
-
----
-
-## Estado actual (camino a Beta `v0.1`)
-
-OriginLabs se encuentra en construcción activa hacia su primera **Beta Cerrada**:
-
-- [x] **Infraestructura base y Design System:** Docker Compose (`dev` y `prod`), Caddy, PostgreSQL 16, Redis 7, FastAPI + ARQ Worker y panel React en tema oscuro neutro.
-- [x] **Identidad, Organizaciones y RBAC:** setup único del primer administrador, sesiones en Redis (`HttpOnly`), invitaciones por enlace de 72h, roles (`owner`, `admin`, `developer`, `viewer`) y `forward_auth` para Caddy.
-- [x] **Auditoría inmutable:** registro de eventos críticos en PostgreSQL (`/api/v1/audit`).
-- [x] **`Projects` y conectores Git:** conexiones verificadas a GitHub y GitLab (con contrato listo para OriginLabs Git interno), equipos por proyecto y variables de entorno cifradas en reposo con Fernet.
-- [x] **Notificaciones de nuevas versiones:** verificación automática (ARQ cron cada 6h) contra manifiestos firmados con **Ed25519** o GitHub Releases, banner en el panel para administradores, centro de notificaciones y webhook HMAC opcional.
-- [ ] **Orquestador de `Workspaces` + Terminal:** contenedores `code-server` sin `root`, límites por clase, routing dinámico `ws-<id>.dominio` en Caddy y terminal `xterm.js` vía WebSocket.
-- [ ] **Monitoreo y control de saturación:** métricas en vivo del host/contenedores y control de admisión por recursos.
-- [ ] **Respaldos (`restic`) y actualización automática:** backups cifrados (local / S3), restauración desde el panel y *updater* con respaldo previo y rollback.
-- [x] **Instalador en 1 comando (`install.sh`) y validación E2E:** instalación automatizada en Ubuntu 22.04/24.04/26.04 LTS y Debian 12/13, migraciones automáticas y smoke tests en vivo en CI.
+> [!TIP]
+> El instalador verifica sistema operativo, arquitectura, recursos y puertos; instala Docker si falta; genera claves criptográficas seguras en `/opt/originlabs/.env` sin sobrescribir despliegues previos; aplica migraciones automáticamente; levanta la imagen unificada `ghcr.io/sushell-app/originlabs:latest` junto a PostgreSQL 16, Redis 7 y Caddy; y muestra el **`ORIGINLABS_BOOTSTRAP_TOKEN`** de un solo uso para crear el primer administrador.
+> Para VPS muy pequeños debajo del mínimo recomendado, puedes añadir `--skip-resource-check`.
 
 ---
 
-## Arquitectura en un vistazo
+## ¿Por qué OriginLabs?
 
-```text
-Internet / Equipo Dev (HTTPS 80/443)
-          │
-          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                           Caddy                             │
-│  • panel.dominio         ──► Frontend React (SPA)           │
-│  • panel.dominio/api/*   ──► FastAPI (api:8000)             │
-│  • panel.dominio/ws/*    ──► FastAPI WebSockets (xterm.js)  │
-│  • ws-<id>.dominio       ──► forward_auth(api) ──► ws-<id>  │
-└───────────────┬─────────────────────────────┬───────────────┘
-                │ (red núcleo: originlabs_net)│ (red aislada de workspaces)
-                ▼                             ▼
-┌───────────────────────────────┐   ┌─────────────────────────┐
-│  Núcleo Backend (Python)      │   │  Workspace ws-<id>      │
-│  • FastAPI + SQLAlchemy async │   │  • code-server (no-root)│
-│  • ARQ Worker (Redis jobs)    │   │  • Volumen persistente  │
-│  • PostgreSQL 16 + Redis 7    │   │  • Límites CPU/RAM/Disk │
-└───────────────┬───────────────┘   └─────────────────────────┘
-                │
-                ▼
-      Docker Engine / restic
+Desarrollado por **[Sushell](https://sushell.com/originlabs)** (autor principal: **Javier Cáceres** · `@iamnvus`), **OriginLabs** resuelve la fragmentación diaria de equipos de desarrollo pequeños y medianos ofreciendo un único plano de control privado bajo tu propio dominio:
+
+1. **Corres un comando** en tu servidor Linux limpio.
+2. **Abres tu dominio** con TLS automático y completas el setup inicial protegido.
+3. **Organizas equipos y repositorios** desde GitHub, GitLab o conector Git interno con variables `.env` cifradas.
+4. **Abres Workspaces bajo demanda:** cada desarrollador programa en su propio contenedor `code-server` sin `root`, con terminal WebSocket integrada y routing `ws-<id>.tu-dominio.com`.
+5. **Ahorras cómputo automáticamente:** los workspaces apagados consumen **0 CPU y 0 RAM** y el worker ARQ suspende entornos inactivos.
+6. **Operas sin sorpresas:** auditoría en PostgreSQL, telemetría del servidor con control de admisión, respaldos cifrados con `restic` y notificaciones de nuevas versiones firmadas con Ed25519.
+
+---
+
+## Capacidades principales
+
+| Módulo | Qué incluye | Estado |
+| --- | --- | --- |
+| **Identidad, Orgs & RBAC** | Setup inicial único, Argon2id, sesiones Redis (`HttpOnly`), invitaciones 72h, roles (`owner`, `admin`, `developer`, `viewer`) y `forward_auth` para Caddy. | Operativo |
+| **`Projects` & Conectores Git** | Integración con **GitHub**, **GitLab** y contrato **OriginLabs Git**, miembros por proyecto y secretos `.env` cifrados con **Fernet**. | Operativo |
+| **`Workspaces` & Terminal Web** | Orquestador Docker (`code-server` no-root, `cap_drop: ["ALL"]`, cuotas `cgroups`, routing dinámico Caddy y terminal WebSocket + auto-apagado ARQ). | Operativo |
+| **Colaboración Interna** | **Knowledge Base** (carpetas, etiquetas y Markdown), **Team Chat** (canales y notas privadas) y **Tasks** conectadas desde mensajes. | Operativo |
+| **Monitoreo & Admisión** | Telemetría en vivo de CPU, RAM y disco con bloqueo preventivo antes de saturar el servidor al iniciar workspaces. | Operativo |
+| **Respaldos (`restic`)** | Configuración cifrada para repositorio local o S3, retención diaria/semanal, ejecución bajo demanda sin `shell=True` e historial de snapshots. | Operativo |
+| **Updates & Notificaciones** | Verificación automática (ARQ cada 6h) de manifiestos firmados con **Ed25519** o GitHub Releases, centro de alertas y webhook HMAC. | Operativo |
+| **Instalador 1-Comando** | `install.sh` y `uninstall.sh` con soporte `--domain`, `--http-only`, `--dry-run`, verificación real en Caddy y preservación de secretos. | Operativo |
+
+---
+
+## Arquitectura
+
+```mermaid
+flowchart TB
+    Users["Equipo Dev / Navegador (HTTPS 80/443)"] --> Caddy
+
+    subgraph CoreNet["Red núcleo aislada (originlabs_net)"]
+        Caddy["Caddy Proxy<br/>TLS automático · forward_auth"]
+        App["Imagen única OriginLabs<br/>React 19 SPA + FastAPI API (:8000)"]
+        Worker["ARQ Worker<br/>Auto-apagado idle · Updates · Backups"]
+        PG[("PostgreSQL 16<br/>Datos + Auditoría")]
+        Redis[("Redis 7<br/>Sesiones + Colas ARQ")]
+
+        Caddy --> App
+        App <--> PG
+        App <--> Redis
+        Worker <--> PG
+        Worker <--> Redis
+    end
+
+    subgraph WsNet["Red aislada de Workspaces (originlabs_workspaces)"]
+        WS1["Workspace ws-1<br/>code-server · UID 1000 · cgroups"]
+        WS2["Workspace ws-2<br/>code-server · UID 1000 · cgroups"]
+    end
+
+    Caddy -. "forward_auth → /api/v1/internal/forward-auth" .-> App
+    Caddy --> WS1
+    Caddy --> WS2
+    App -- "Docker SDK (host)" --> WS1
+    Worker -- "Idle Reaper" --> WS2
+    Worker -- "restic (local / S3)" --> Backups[("Snapshots cifrados")]
 ```
 
 ---
 
-## Requisitos del servidor y consumo de recursos (`ESTIMADO`)
+## Seguridad en 5 capas
+
+| Capa | Riesgo mitigado | Controles aplicados |
+| --- | --- | --- |
+| **1. Aislamiento de Workspaces** | Escalada al host o acceso lateral entre entornos. | Usuario `1000:1000` sin `root`, `cap_drop: ["ALL"]`, `no-new-privileges:true`, límites `cgroups` (CPU, RAM, `pids_limit`), red Docker aislada y **prohibición explícita de montar `/var/run/docker.sock`**. |
+| **2. Perímetro y SSO** | Acceso directo sin sesión a puertos o subdominios IDE. | **Caddy** con TLS automático y validación obligatoria vía **`forward_auth`** antes de enrutar hacia cualquier `ws-<id>.dominio`. |
+| **3. Identidad y Sesiones** | Fuerza bruta, secuestro de sesión o escalada de privilegios. | Hashing **Argon2id**, tokens opacos en **Redis** con cookies `HttpOnly; SameSite=Lax`, *rate limiting* en setup/login y RBAC granular. |
+| **4. Secretos y Sanitización** | Fugas en BD o inyección de comandos. | Cifrado en reposo con **Fernet**, validación estricta **Pydantic v2**, ORM SQLAlchemy 2.0 parametrizado, inyección de credenciales Git/`restic` solo en memoria y cero `shell=True`. |
+| **5. Auditoría, Updates y Backups** | Cambios sin trazabilidad o pérdida de datos. | Registro de auditoría en PostgreSQL (`/api/v1/audit`), snapshots cifrados con **`restic`** y verificación **Ed25519** de manifiestos de versión. |
+
+Más detalles técnicos en [docs/security-sanitization.md](docs/security-sanitization.md) y [SECURITY.md](SECURITY.md).
+
+---
+
+## Requisitos del servidor y consumo (`ESTIMADO`)
 
 > [!NOTE]
-> Las cifras de CPU, memoria y disco de esta sección están marcadas como **`ESTIMADO`** (sin fuente de medición propia aún; se calibrarán empíricamente durante las pruebas previas a la Beta).
+> Las cifras de CPU, memoria y disco marcadas como **`ESTIMADO`** sirven como referencia de dimensionamiento y se calibran según el stack real de tus repositorios.
 
-### Servidor base
+### Servidor anfitrión
 
 | Concepto | Mínimo (`ESTIMADO`) | Recomendado (`ESTIMADO`) |
 | --- | --- | --- |
-| **Uso previsto** | Prueba · 1–2 workspaces | Equipo de ~5–10 devs · ~5 activos |
+| **Uso previsto** | Pruebas · 1–2 workspaces | Equipo de ~5–10 devs · ~5 activos |
 | **CPU** | 2 vCPU | 8 vCPU |
 | **RAM** | 4 GB | 16–32 GB |
 | **Disco** | 40 GB SSD | 200 GB NVMe |
 | **SO soportados** | Ubuntu 22.04 / 24.04 / 26.04 LTS · Debian 12 / 13 | Ubuntu 22.04 / 24.04 / 26.04 LTS · Debian 12 / 13 |
-| **Arquitectura** | `x86_64` y `ARM64` | `x86_64` y `ARM64` |
-| **Dominio** | Dominio propio con DNS comodín (`*.dominio`) | Dominio propio con DNS comodín (`*.dominio`) |
-| **Puertos** | `80` y `443` (web y SSL) · `22` (SSH de administración) | `80` y `443` (web y SSL) · `22` (SSH de administración) |
+| **Arquitectura** | `x86_64` (`amd64`) y `ARM64` (`arm64`) | `x86_64` (`amd64`) y `ARM64` (`arm64`) |
+| **Red / Puertos** | `80`, `443` + DNS comodín `*.dominio` | `80`, `443` + DNS comodín `*.dominio` |
 
-### Consumo por clase de workspace (`ESTIMADO`)
+### Cuotas por clase de workspace (`ESTIMADO`)
 
-| Clase | CPU (`ESTIMADO`) | RAM (`ESTIMADO`) | Disco (`ESTIMADO`) | Uso previsto |
-| --- | --- | --- | --- | --- |
-| **Ligero** | 1 vCPU | 2 GB | 10 GB | Web, scripts |
-| **Estándar** | 2 vCPU | 4 GB | 30 GB | Apps con base de datos |
-| **Pesado** | 4 vCPU | 8 GB | 30 GB | Builds grandes, Docker dentro |
+| Clase | CPU (`ESTIMADO`) | RAM (`ESTIMADO`) | Disco (`ESTIMADO`) | Límite PIDs | Uso ideal |
+| --- | --- | --- | --- | --- | --- |
+| **Ligero** | 1 vCPU | 2 GB | 10 GB | 256 | Scripts, frontend, docs, microservicios |
+| **Estándar** | 2 vCPU | 4 GB | 30 GB | 512 | APIs, apps full-stack, desarrollo diario |
+| **Pesado** | 4 vCPU | 8 GB | 30 GB | 1024 | Monorepos, compilaciones pesadas |
 
-### Optimización de consumo de recursos al no estar en uso
-
-OriginLabs está pensado para maximizar la densidad de desarrolladores en un único servidor sin pagar infraestructura ociosa:
-
-- **0 CPU y 0 RAM cuando un workspace está apagado:** al detener un entorno, su contenedor se detiene por completo y libera el 100% de cómputo y memoria para el resto del equipo. El código, dependencias locales y configuración permanecen intactos en su volumen persistente para retomar el trabajo en segundos.
-- **Auto-apagado por inactividad *(en hoja de ruta · Módulo 5)*:** suspensión automática configurable tras un periodo sin actividad en el IDE o la terminal, evitando que entornos olvidados consuman memoria durante la noche o fines de semana.
-- **Núcleo liviano en reposo:** el plano de control (FastAPI + Worker ARQ + PostgreSQL + Redis + Caddy) se mantiene dentro de un margen estimado de **~1 vCPU y ~2 GB de RAM** sin workspaces activos.
-- **Cuotas estrictas y control de admisión *(en hoja de ruta · Módulo 7)*:** cada workspace respeta límites duros según su clase (`Ligero`, `Estándar`, `Pesado`) y el sistema alerta o bloquea nuevos arranques antes de saturar el servidor.
-
-**Cálculo rápido de dimensionamiento (`ESTIMADO`):**
-- **CPU necesaria** ≈ `1 vCPU (núcleo)` + suma de vCPU de workspaces **activos simultáneamente**.
-- **RAM necesaria** ≈ `2 GB (núcleo)` + suma de RAM de workspaces **activos simultáneamente**.
-- **Disco necesario** ≈ `~15 GB (sistema e imágenes base)` + suma de disco de **todos** los workspaces (activos y apagados) + espacio para snapshots locales si no respaldas hacia S3.
+- **Cero desperdicio en reposo:** un workspace detenido libera el 100% de CPU y RAM manteniendo su volumen de código intacto; el worker ARQ detiene automáticamente entornos tras su tiempo límite de inactividad.
+- **Control de admisión:** antes de arrancar un workspace nuevo, el servidor evalúa memoria y disco libres para evitar caídas del VPS por saturación.
 
 ---
 
-## Nivel de seguridad y cómo se maneja
+## Imagen única para VPS pequeños y PaaS
 
-OriginLabs aplica **defensa en profundidad en 5 capas** para proteger tanto al servidor anfitrión como los repositorios y secretos del equipo:
-
-| Capa | Qué protege | Cómo se implementa |
-| --- | --- | --- |
-| **1. Aislamiento de workspaces** | Evita que código arbitrario dentro de un workspace afecte al servidor o a otros proyectos. | Contenedores sin `root`, `no-new-privileges`, `cap_drop: ["ALL"]`, límites `cgroups` (CPU, RAM, disco y `pids_limit`), red Docker aislada sin acceso a PostgreSQL/Redis/`caddy:2019` y **prohibición de montar `/var/run/docker.sock`** del host *(diseño Módulo 5)*. |
-| **2. Perímetro y acceso** | Protege el tráfico externo y los subdominios de IDE/terminal. | **Caddy** con TLS automático (Let's Encrypt), cabeceras HTTP de seguridad y endpoint interno **`forward_auth`** que valida la sesión del usuario antes de permitir la entrada a cualquier `ws-<id>.dominio`. |
-| **3. Identidad y RBAC** | Controla quién accede a la instancia, organizaciones y proyectos. | Contraseñas con **Argon2id**, sesiones opacas en **Redis** con cookies `HttpOnly; SameSite=Lax`, *rate limiting* en login/setup y roles granulares por instancia, organización (`owner`, `admin`, `developer`, `viewer`) y proyecto (`maintainer`, `developer`, `viewer`). |
-| **4. Secretos y sanitización** | Protege tokens Git, variables `.env` y entradas de API. | Cifrado en reposo con **Fernet** y clave dedicada (`ORIGINLABS_ENCRYPTION_KEY`) en PostgreSQL; validación estricta con **Pydantic v2** (bloqueo de inyección de flags en `git` y URLs inseguras), ORM parametrizado SQLAlchemy 2.0 y cero ejecución vía `shell=True`. |
-| **5. Auditoría, backups y updates** | Garantiza trazabilidad y recuperación segura ante fallos. | Bitácora de auditoría en PostgreSQL (`/api/v1/audit`), respaldos cifrados con **`restic`** hacia disco local o S3, y actualizaciones verificadas por firma **Ed25519** con respaldo previo obligatorio y *rollback* automático *(Módulo 8)*. |
-
-Para el detalle técnico de controles, sanitización y auditoría de dependencias, consulta [docs/security-sanitization.md](docs/security-sanitization.md).
-
----
-
-## Instalación en 1 comando (VPS Linux)
-
-En un servidor limpio con **Ubuntu 22.04 / 24.04 / 26.04 LTS** o **Debian 12 / 13** (`x86_64` o `ARM64`):
-
-**Con dominio propio y SSL automático (Let's Encrypt vía Caddy):**
-```bash
-curl -fsSL https://raw.githubusercontent.com/sushell-app/originlabs/main/installer/install.sh | sudo bash -s -- --domain panel.tu-dominio.com
-```
-
-**Prueba rápida sin dominio (solo HTTP por puerto 80 / IP):**
-```bash
-curl -fsSL https://raw.githubusercontent.com/sushell-app/originlabs/main/installer/install.sh | sudo bash -s -- --http-only
-```
-
-El instalador verifica el sistema operativo y recursos, instala Docker si falta, descarga la imagen única `ghcr.io/sushell-app/originlabs:latest`, genera secretos seguros en `/opt/originlabs/.env`, aplica las migraciones de PostgreSQL y levanta toda la plataforma mostrando el `bootstrap_token` inicial.
-
----
-
-## Inicio rápido en desarrollo local
-
-Requisitos previos en tu máquina: **Docker** y **Docker Compose**.
-
-1. Copia el archivo de variables de entorno y levanta el stack:
-   ```bash
-   cp .env.example .env
-   docker compose -f compose.dev.yml up --build -d
-   ```
-2. Aplica las migraciones de PostgreSQL:
-   ```bash
-   make migrate
-   ```
-3. Abre el panel en **`http://localhost`** para crear el primer administrador y tu primera organización.
-
-Endpoints útiles en local:
-- **Panel React (vía Caddy):** `http://localhost`
-- **API Docs (solo desarrollo):** `http://localhost/api/docs`
-- **Healthcheck (API + PostgreSQL + Redis):** `http://localhost/api/v1/health`
-- **Metadata de instancia:** `http://localhost/api/v1/meta`
-
-Comandos disponibles en [Makefile](Makefile):
-
-| Comando | Descripción |
-| --- | --- |
-| `make dev` | Levanta todos los contenedores en desarrollo con rebuild. |
-| `make down` | Detiene los contenedores locales. |
-| `make logs` | Muestra logs en tiempo real. |
-| `make migrate` | Ejecuta `alembic upgrade head` dentro del contenedor `api`. |
-| `make check-compose` | Valida `compose.dev.yml` y `compose.prod.yml`. |
-| `make check-py` | Compila/verifica sintaxis de `backend/`. |
-| `make check-bash` | Valida sintaxis de los scripts en `installer/`. |
-
-### Imagen única para VPS pequeños (`ghcr.io/sushell-app/originlabs`)
-
-Si usas un PaaS o un VPS pequeño que despliega **un solo contenedor** (apuntando a tu PostgreSQL 16 y Redis 7 gestionados), OriginLabs publica una imagen unificada (`linux/amd64` y `linux/arm64`) que incluye tanto el panel React como la API FastAPI:
+Si despliegas en un PaaS o VPS que ejecuta **un único contenedor** conectado a PostgreSQL 16 y Redis 7 externos, usa directamente la imagen oficial multi-arquitectura **`ghcr.io/sushell-app/originlabs:latest`** (incluye SPA React + FastAPI + auto-migración + soporte automático para `$PORT` / `$SERVER_PORT`):
 
 ```bash
 docker run -d --name originlabs -p 8000:8000 \
   -e ORIGINLABS_ENV=production \
   -e ORIGINLABS_DOMAIN=panel.tu-dominio.com \
+  -e ORIGINLABS_AUTO_MIGRATE=true \
   -e ORIGINLABS_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
   -e DATABASE_URL="postgresql+asyncpg://user:pass@host:5432/originlabs" \
   -e REDIS_URL="redis://host:6379/0" \
@@ -217,45 +184,85 @@ docker run -d --name originlabs -p 8000:8000 \
 
 ---
 
-## Stack tecnológico y estructura
+## Inicio rápido en desarrollo local
 
-| Capa | Tecnología |
+Requisitos: **Docker** y **Docker Compose**.
+
+```bash
+cp .env.example .env
+docker compose -f compose.dev.yml up --build -d
+make migrate
+```
+
+- **Panel web (vía Caddy):** `http://localhost`
+- **API Docs (solo dev):** `http://localhost/api/docs`
+- **Healthcheck:** `http://localhost/api/v1/health`
+
+<details>
+<summary>Ver todos los atajos del Makefile</summary>
+
+| Comando | Descripción |
 | --- | --- |
-| **Contenedores y Proxy** | Docker + Docker Compose · Caddy (TLS automático + routing `*.dominio`) |
-| **Backend y Workers** | Python 3.12+ · FastAPI · SQLAlchemy 2.0 async · Alembic · ARQ · Docker SDK |
-| **Base de datos y Colas** | PostgreSQL 16 · Redis 7 |
-| **Frontend** | React · TypeScript · Vite · Tailwind CSS |
-| **Workspaces y Respaldos** | `code-server` / OpenVSCode Server · `xterm.js` · `restic` |
+| `make dev` | Levanta todos los contenedores en desarrollo con rebuild. |
+| `make down` | Detiene los contenedores locales. |
+| `make logs` | Muestra logs en tiempo real. |
+| `make migrate` | Ejecuta `alembic upgrade head` dentro del contenedor `api`. |
+| `make check-compose` | Valida `compose.dev.yml` y `compose.prod.yml`. |
+| `make check-py` | Compila y verifica sintaxis de `backend/`. |
+| `make check-bash` | Valida sintaxis de los scripts en `installer/`. |
+
+</details>
+
+---
+
+## Calidad y matriz de CI verificada
+
+Cada push y pull request a `main` ejecuta automáticamente 7 suites de verificación en [`.github/workflows/ci.yml`](.github/workflows/ci.yml) y publica contenedores multi-arch en [`.github/workflows/docker.yml`](.github/workflows/docker.yml):
+
+| Suite en CI | Entorno real probado | Qué valida |
+| --- | --- | --- |
+| **Backend (`ubuntu-latest` y `windows-latest`)** | Python 3.12 | `ruff`, `mypy --strict` y pruebas unitarias `pytest`. |
+| **Frontend (`ubuntu-latest` y `windows-latest`)** | Node 22 + Vite 6 | `tsc --noEmit` estricto y compilación de producción. |
+| **Live E2E** | PostgreSQL 16 + Redis 7 | Migraciones Alembic `upgrade/downgrade/upgrade` + ciclo completo de API real. |
+| **Infra & Distros Linux** | `ubuntu:22.04`, `ubuntu:24.04`, `debian:12` | `docker compose config`, `shellcheck` y dry-run de `install.sh` en contenedores reales. |
+| **Single Container & 1-Command Installer E2E** | Ubuntu + Caddy + Docker | Build de `Dockerfile`, ejecución real de `install.sh --http-only`, verificación HTTP y `uninstall.sh --purge`. |
+
+---
+
+## Estructura del repositorio
 
 ```text
 .
-├── backend/            # API FastAPI, workers ARQ, módulos de dominio, migraciones y tests
-├── frontend/           # SPA en React + TypeScript + Vite + Tailwind CSS
+├── .github/            # Workflows CI/CD (multi-OS, E2E, GHCR) y Dependabot
+├── backend/            # API FastAPI, workers ARQ, módulos de dominio, Alembic y pytest
+├── frontend/           # SPA en React 19 + TypeScript + Vite 6 + Tailwind CSS v4
 ├── infra/caddy/        # Plantillas Caddyfile para desarrollo y producción
-├── installer/          # Scripts Bash de instalación y desinstalación (v0.1 en desarrollo)
-├── docs/               # Documentación técnica (arquitectura, diseño, seguridad, updates)
-├── Dockerfile          # Imagen unificada (Frontend + Core API) publicada en GHCR
-├── compose.dev.yml     # Stack completo para desarrollo local
-├── compose.prod.yml    # Stack de producción (usa ghcr.io/sushell-app/originlabs)
+├── installer/          # Instalador y desinstalador automatizados en Bash
+├── docs/               # Documentación de arquitectura, diseño, seguridad y updates
+├── Dockerfile          # Imagen unificada multi-stage (Frontend + Core API + auto-migrate)
+├── compose.dev.yml     # Entorno completo de desarrollo local
+├── compose.prod.yml    # Stack de producción con imagen oficial GHCR
 ├── Makefile            # Atajos de desarrollo y validación
 └── LICENSE             # Licencia GNU AGPL-3.0
 ```
 
----
+## Documentación técnica y comunidad
 
-## Documentación técnica
-
-- [docs/architecture.md](docs/architecture.md) — Arquitectura por capas, topología de red, `forward_auth` y mapa de persistencia.
-- [docs/design-system.md](docs/design-system.md) — Paleta oscura neutra, tokens CSS y patrones visuales del panel.
-- [docs/security-sanitization.md](docs/security-sanitization.md) — Guía de sanitización del repositorio, API, contenedores Docker y frontend.
-- [docs/updates-and-notifications.md](docs/updates-and-notifications.md) — Diseño de actualizaciones firmadas (`stable` / `beta`), notificaciones al admin, respaldo previo `restic` y rollback.
+- [docs/architecture.md](docs/architecture.md) — Arquitectura por capas, topología de red, `forward_auth` y persistencia.
+- [docs/design-system.md](docs/design-system.md) — Sistema visual oscuro grafito, tokens y componentes.
+- [docs/security-sanitization.md](docs/security-sanitization.md) — Controles criptográficos, sanitización y aislamiento.
+- [docs/updates-and-notifications.md](docs/updates-and-notifications.md) — Releases firmados con Ed25519, canales y notificaciones.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Cómo contribuir manteniendo el estándar de código y CI.
 
 ---
 
 ## Ediciones y Licencia
 
-OriginLabs sigue un modelo **Open Core**:
-- **Community (Gratis):** núcleo open source *self-hosted* bajo licencia **[GNU AGPL-3.0](LICENSE)**, útil desde el día uno con `Projects` y `Workspaces`.
-- **Servicios y ediciones futuras (Post-MVP):** extensiones propias de Sushell, edición Pro, Cloud administrado y Enterprise.
+**OriginLabs** sigue un modelo **Open Core** desarrollado por **Sushell**:
 
-Más información en **[sushell.com/originlabs](https://sushell.com/originlabs)**.
+- **Community (Gratis):** núcleo completo *self-hosted* bajo licencia **[GNU AGPL-3.0](LICENSE)**.
+- **Extensiones y servicios gestionados (Post-MVP):** capacidades adicionales oficiales de Sushell, edición Pro, Cloud y Enterprise.
+
+<div align="center">
+  <sub>Hecho por <strong>Sushell</strong> · <a href="https://sushell.com/originlabs">sushell.com/originlabs</a></sub>
+</div>

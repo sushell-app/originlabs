@@ -15,7 +15,7 @@ import {
   MessageSquare,
   Minus,
   Plus,
-  RefreshCw,
+  Server,
   ShieldCheck,
   Terminal,
   Users,
@@ -27,8 +27,10 @@ import NotificationsView from "./components/NotificationsView";
 import OrganizationView from "./components/OrganizationView";
 import ProjectsView, { type ProjectsFilterTab } from "./components/ProjectsView";
 import SetupWizard from "./components/SetupWizard";
+import SystemOpsView from "./components/SystemOpsView";
 import TasksView from "./components/TasksView";
 import TeamChatView from "./components/TeamChatView";
+import WorkspacesView from "./components/WorkspacesView";
 import {
   ApiError,
   getHealth,
@@ -40,6 +42,7 @@ import {
   getSystemNotifications,
   getTeamTasks,
   getUpdateStatus,
+  getWorkspaces,
   logout,
   type AuthSessionResponse,
   type HealthResponse,
@@ -50,16 +53,19 @@ import {
   type SystemNotificationPublic,
   type TeamTaskPublic,
   type UpdateStatusResponse,
+  type WorkspacePublic,
 } from "./lib/api";
 
 type PrimarySection =
   | "home"
   | "projects"
+  | "workspaces"
   | "knowledge"
   | "chat"
   | "tasks"
   | "org"
   | "audit"
+  | "system-ops"
   | "notifications";
 
 const WORKSPACE_CLASSES = [
@@ -77,6 +83,7 @@ export default function App() {
   const [selectedOrgId, setSelectedOrgId] = useState<string>("");
 
   const [projects, setProjects] = useState<ProjectPublic[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspacePublic[]>([]);
   const [tasks, setTasks] = useState<TeamTaskPublic[]>([]);
   const [docsCount, setDocsCount] = useState<number>(0);
 
@@ -148,13 +155,19 @@ export default function App() {
   const refreshProjects = useCallback(async () => {
     if (!session || !activeOrg) {
       setProjects([]);
+      setWorkspaces([]);
       return;
     }
     try {
-      const items = await getProjects(activeOrg.id);
-      setProjects(items);
+      const [projItems, wsItems] = await Promise.all([
+        getProjects(activeOrg.id),
+        getWorkspaces(activeOrg.id),
+      ]);
+      setProjects(projItems);
+      setWorkspaces(wsItems);
     } catch {
       setProjects([]);
+      setWorkspaces([]);
     }
   }, [session, activeOrg]);
 
@@ -218,6 +231,7 @@ export default function App() {
     await logout();
     setSession(null);
     setProjects([]);
+    setWorkspaces([]);
     setTasks([]);
     setDocsCount(0);
     setUpdateStatus(null);
@@ -282,6 +296,7 @@ export default function App() {
   const openTasksCount = tasks.filter(
     (t) => t.status === "pending" || t.status === "in_progress"
   ).length;
+  const runningWorkspacesCount = workspaces.filter((w) => w.status === "running").length;
 
   const apiOk = health !== null && !error;
   const dbOk = health?.services.database.ok ?? false;
@@ -432,9 +447,9 @@ export default function App() {
             <SidebarItem
               icon={Terminal}
               label="Workspaces"
-              badgeText="M5"
-              disabled
-              onClick={() => undefined}
+              count={runningWorkspacesCount}
+              active={section === "workspaces"}
+              onClick={() => setSection("workspaces")}
             />
             <SidebarItem
               icon={Users}
@@ -449,14 +464,22 @@ export default function App() {
               onClick={() => setSection("audit")}
             />
             {session.user.is_instance_admin && (
-              <SidebarItem
-                icon={Bell}
-                label="Notificaciones"
-                count={unreadNotifications}
-                highlight={unreadNotifications > 0}
-                active={section === "notifications"}
-                onClick={() => setSection("notifications")}
-              />
+              <>
+                <SidebarItem
+                  icon={Server}
+                  label="Servidor & Backups"
+                  active={section === "system-ops"}
+                  onClick={() => setSection("system-ops")}
+                />
+                <SidebarItem
+                  icon={Bell}
+                  label="Notificaciones"
+                  count={unreadNotifications}
+                  highlight={unreadNotifications > 0}
+                  active={section === "notifications"}
+                  onClick={() => setSection("notifications")}
+                />
+              </>
             )}
           </nav>
         </div>
@@ -549,6 +572,15 @@ export default function App() {
             />
           )}
 
+          {section === "workspaces" && (
+            <WorkspacesView
+              organization={activeOrg}
+              projects={projects}
+              workspaces={workspaces}
+              onRefreshWorkspaces={refreshProjects}
+            />
+          )}
+
           {section === "knowledge" && (
             <KnowledgeView organization={activeOrg} onDocsCountChange={setDocsCount} />
           )}
@@ -578,6 +610,8 @@ export default function App() {
           )}
 
           {section === "audit" && <AuditView organizationId={activeOrg?.id} />}
+
+          {section === "system-ops" && session.user.is_instance_admin && <SystemOpsView />}
 
           {section === "notifications" && session.user.is_instance_admin && (
             <NotificationsView
@@ -696,19 +730,24 @@ export default function App() {
 
                     <div className="px-5 py-3.5 flex items-center justify-between gap-4 text-xs">
                       <div className="flex items-center gap-3">
-                        <RefreshCw className="h-4 w-4 text-[#FBBF24]" />
+                        <CheckCircle2 className="h-4 w-4 text-[#34D399]" />
                         <div>
                           <p className="text-sm font-medium text-[#F4F4F5]">
-                            Workspaces (Módulo 5 y 6)
+                            Workspaces ({runningWorkspacesCount}/{workspaces.length}) & Terminal Web
                           </p>
                           <p className="text-[#71717A]">
-                            Siguiente bloque: contenedores code-server sin root y terminal xterm.js.
+                            Contenedores code-server sin root, cgroups por clase y terminal
+                            WebSocket.
                           </p>
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 rounded bg-[#242429] border border-[#323238] text-[11px] text-[#A1A1AA]">
-                        Próximamente
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSection("workspaces")}
+                        className="rounded-lg border border-[#3F3F46] bg-[#2B2B30] hover:bg-[#35353B] px-3 py-1.5 text-xs text-[#F4F4F5]"
+                      >
+                        Abrir
+                      </button>
                     </div>
                   </div>
                 ) : (

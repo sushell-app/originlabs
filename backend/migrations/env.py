@@ -15,6 +15,7 @@ from app.modules.collab import models as _collab_models  # noqa: F401
 from app.modules.identity import models as _identity_models  # noqa: F401
 from app.modules.projects import models as _projects_models  # noqa: F401
 from app.modules.system import models as _system_models  # noqa: F401
+from app.modules.workspaces import models as _workspaces_models  # noqa: F401
 
 config = context.config
 

@@ -751,3 +751,180 @@ export function deleteTeamTask(organizationId: string, taskId: string): Promise<
     method: "DELETE",
   });
 }
+
+export type WorkspaceStatus = "stopped" | "starting" | "running" | "stopping" | "error";
+
+export interface WorkspacePublic {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  owner_user_id: string;
+  name: string;
+  slug: string;
+  workspace_class: WorkspaceClassType;
+  image: string;
+  status: WorkspaceStatus;
+  container_id: string | null;
+  container_name: string;
+  volume_name: string;
+  subdomain: string;
+  ide_url: string;
+  idle_timeout_minutes: number;
+  last_activity_at: string | null;
+  started_at: string | null;
+  stopped_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getWorkspaces(organizationId: string): Promise<WorkspacePublic[]> {
+  return request<WorkspacePublic[]>(`/organizations/${organizationId}/workspaces`);
+}
+
+export function createWorkspace(
+  organizationId: string,
+  payload: {
+    project_id: string;
+    name: string;
+    slug: string;
+    workspace_class: WorkspaceClassType;
+    idle_timeout_minutes: number;
+    auto_start: boolean;
+  }
+): Promise<WorkspacePublic> {
+  return request<WorkspacePublic>(`/organizations/${organizationId}/workspaces`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function startWorkspace(
+  organizationId: string,
+  workspaceId: string
+): Promise<WorkspacePublic> {
+  return request<WorkspacePublic>(
+    `/organizations/${organizationId}/workspaces/${workspaceId}/start`,
+    { method: "POST" }
+  );
+}
+
+export function stopWorkspace(
+  organizationId: string,
+  workspaceId: string
+): Promise<WorkspacePublic> {
+  return request<WorkspacePublic>(
+    `/organizations/${organizationId}/workspaces/${workspaceId}/stop`,
+    { method: "POST" }
+  );
+}
+
+export function deleteWorkspace(
+  organizationId: string,
+  workspaceId: string,
+  purgeVolume = false
+): Promise<void> {
+  const qs = purgeVolume ? "?purge_volume=true" : "";
+  return request<void>(`/organizations/${organizationId}/workspaces/${workspaceId}${qs}`, {
+    method: "DELETE",
+  });
+}
+
+export function buildWorkspaceTerminalWsUrl(
+  organizationId: string,
+  workspaceId: string
+): string {
+  const path = `${API_BASE}/organizations/${organizationId}/workspaces/${workspaceId}/terminal`;
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path.replace(/^http/, "ws");
+  }
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}${path}`;
+}
+
+export interface AdmissionStatusPublic {
+  workspace_class: WorkspaceClassType;
+  allowed: boolean;
+  severity: string;
+  reason: string;
+}
+
+export interface HostMetricsResponse {
+  hostname: string;
+  os_name: string;
+  arch: string;
+  cpu_cores: number;
+  load_avg_1m: number;
+  ram_total_mb: number;
+  ram_available_mb: number;
+  ram_used_pct: number;
+  disk_total_gb: number;
+  disk_free_gb: number;
+  disk_used_pct: number;
+  docker_available: boolean;
+  running_workspaces: number;
+  allocated_cpu_cores: number;
+  allocated_ram_mb: number;
+  admission: AdmissionStatusPublic[];
+}
+
+export type BackupProvider = "local" | "s3";
+
+export interface BackupConfigPublic {
+  enabled: boolean;
+  provider: BackupProvider;
+  repository: string;
+  schedule_cron: string;
+  retention_daily: number;
+  retention_weekly: number;
+  has_password: boolean;
+  has_s3_credentials: boolean;
+  last_backup_at: string | null;
+  updated_at: string;
+}
+
+export interface BackupSnapshotPublic {
+  id: string;
+  status: string;
+  trigger: string;
+  repository: string;
+  snapshot_id: string | null;
+  summary: string;
+  started_at: string;
+  completed_at: string | null;
+}
+
+export function getSystemMetrics(): Promise<HostMetricsResponse> {
+  return request<HostMetricsResponse>("/system/metrics");
+}
+
+export function getBackupConfig(): Promise<BackupConfigPublic> {
+  return request<BackupConfigPublic>("/system/backups/config");
+}
+
+export function updateBackupConfig(payload: {
+  enabled?: boolean;
+  provider?: BackupProvider;
+  repository?: string;
+  schedule_cron?: string;
+  retention_daily?: number;
+  retention_weekly?: number;
+  password?: string;
+  s3_access_key?: string;
+  s3_secret_key?: string;
+}): Promise<BackupConfigPublic> {
+  return request<BackupConfigPublic>("/system/backups/config", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getBackupSnapshots(): Promise<BackupSnapshotPublic[]> {
+  return request<BackupSnapshotPublic[]>("/system/backups/snapshots");
+}
+
+export function triggerManualBackup(): Promise<BackupSnapshotPublic> {
+  return request<BackupSnapshotPublic>("/system/backups/run", {
+    method: "POST",
+  });
+}

@@ -8,12 +8,14 @@ from app.modules.collab.router import collab_router
 from app.modules.identity.router import auth_router, internal_router, orgs_router
 from app.modules.projects.router import projects_router
 from app.modules.system.router import system_router
+from app.modules.workspaces.router import workspaces_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 api_v1_router.include_router(health_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(orgs_router)
 api_v1_router.include_router(projects_router)
+api_v1_router.include_router(workspaces_router)
 api_v1_router.include_router(collab_router)
 api_v1_router.include_router(system_router)
 api_v1_router.include_router(internal_router)
