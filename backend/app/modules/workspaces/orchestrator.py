@@ -242,7 +242,7 @@ class WorkspaceOrchestrator:
                 workdir=WORKSPACE_MOUNT_PATH,
                 user="1000:1000",
             )
-            output = result.output.decode("utf-8", errors="replace") if result.output else ""
+            output = str(result.output.decode("utf-8", errors="replace")) if result.output else ""
             return int(result.exit_code or 0), output
         except NotFound:
             return 1, "Contenedor del workspace no encontrado en Docker."

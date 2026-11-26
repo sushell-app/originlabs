@@ -1,5 +1,6 @@
 """ARQ background worker for async Docker idle-reaping, restic and update-check jobs."""
 
+import contextlib
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
@@ -57,10 +58,8 @@ async def reap_idle_workspaces_job(
             last_seen = ws.last_activity_at or ws.started_at or ws.created_at
             if now - last_seen < timedelta(minutes=ws.idle_timeout_minutes):
                 continue
-            try:
+            with contextlib.suppress(RuntimeError):
                 orchestrator.stop_container(ws.container_name)
-            except RuntimeError:
-                pass
             await orchestrator.remove_caddy_route(workspace_id=str(ws.id))
             ws.status = "stopped"
             ws.stopped_at = now

@@ -119,7 +119,7 @@ async def run_restic_backup(
             snapshot.summary = output[-400:] or "Respaldo completado correctamente."
         else:
             snapshot.status = "failed"
-            snapshot.summary = (output[-400:] or f"restic salió con código {proc.returncode}")
+            snapshot.summary = output[-400:] or f"restic salió con código {proc.returncode}"
     except OSError as exc:
         snapshot.status = "failed"
         snapshot.summary = f"No se pudo ejecutar restic: {exc}"

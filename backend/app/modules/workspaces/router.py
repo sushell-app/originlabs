@@ -1,6 +1,7 @@
 """Workspaces API endpoints: lifecycle, Caddy forward_auth routing and PTY WebSocket."""
 
 import asyncio
+import contextlib
 import uuid
 from datetime import UTC, datetime
 from typing import cast
@@ -25,8 +26,9 @@ from app.modules.audit.service import record_audit_event
 from app.modules.identity.dependencies import assert_org_access, get_client_ip, get_current_user
 from app.modules.identity.models import User
 from app.modules.identity.sessions import resolve_session_user_id
-from app.modules.projects.git_providers import GitProviderType, build_ephemeral_git_env
+from app.modules.projects.git_providers import build_ephemeral_git_env
 from app.modules.projects.models import GitConnection, Project, ProjectEnvVar
+from app.modules.projects.schemas import GitProviderType
 from app.modules.system.monitoring import HostMetrics, collect_host_metrics, evaluate_admission
 from app.modules.workspaces.models import Workspace
 from app.modules.workspaces.orchestrator import (
@@ -400,15 +402,13 @@ async def delete_workspace(
     settings = get_settings()
     orchestrator = WorkspaceOrchestrator(caddy_admin_url=settings.caddy_admin_url)
 
-    try:
+    with contextlib.suppress(RuntimeError):
         await asyncio.to_thread(
             orchestrator.remove_container,
             container_name=ws.container_name,
             volume_name=ws.volume_name,
             purge_volume=purge_volume,
         )
-    except RuntimeError:
-        pass
 
     await orchestrator.remove_caddy_route(workspace_id=str(ws.id))
     await record_audit_event(

@@ -274,10 +274,8 @@ async def get_system_metrics(
         allocated_cpu_cores=alloc_cpu,
         allocated_ram_mb=alloc_ram,
     )
-    decisions = [
-        evaluate_admission(metrics, ws_cls)
-        for ws_cls in ("light", "standard", "heavy")
-    ]
+    workspace_classes: tuple[WorkspaceClass, ...] = ("light", "standard", "heavy")
+    decisions = [evaluate_admission(metrics, ws_cls) for ws_cls in workspace_classes]
     return HostMetricsResponse(
         hostname=metrics.hostname,
         os_name=metrics.os_name,

@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, Self
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -141,7 +141,7 @@ class BackupConfigUpdateRequest(BaseModel):
     s3_secret_key: str | None = Field(default=None, max_length=256)
 
     @model_validator(mode="after")
-    def validate_repo_with_provider(self) -> "BackupConfigUpdateRequest":
+    def validate_repo_with_provider(self) -> Self:
         if self.repository is not None and self.provider is not None:
             self.repository = validate_backup_repository(self.provider, self.repository)
         return self

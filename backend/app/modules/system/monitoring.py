@@ -3,6 +3,7 @@
 import os
 import platform
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -79,10 +80,12 @@ def collect_host_metrics(
 ) -> HostMetrics:
     """Collect current host telemetry safely across Linux and non-Linux dev hosts."""
     cpu_cores = os.cpu_count() or 1
-    try:
-        load_1m = round(os.getloadavg()[0], 2)
-    except (AttributeError, OSError):
-        load_1m = 0.0
+    load_1m = 0.0
+    if sys.platform != "win32":
+        try:
+            load_1m = round(os.getloadavg()[0], 2)
+        except OSError:
+            load_1m = 0.0
 
     ram_total_mb, ram_avail_mb = _read_linux_meminfo_mb()
     ram_used_pct = (
