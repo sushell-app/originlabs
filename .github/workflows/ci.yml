@@ -18,7 +18,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -53,7 +53,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -101,7 +101,7 @@ jobs:
       ORIGINLABS_ENCRYPTION_KEY: ci-test-encryption-key-32-bytes-ok
       ORIGINLABS_RUN_E2E: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -121,7 +121,7 @@ jobs:
     name: Infra & Linux Distros (Ubuntu 22/24 + Debian 12)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate Docker Compose configs
         run: |
           docker compose --env-file .env.example -f compose.dev.yml config -q
@@ -149,7 +149,7 @@ jobs:
     name: Single Container & 1-Command Installer E2E
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build unified OriginLabs container image
         run: docker build -t originlabs:ci .
       - name: Install OriginLabs with 1-command installer and verify HTTP
