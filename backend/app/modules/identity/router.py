@@ -669,7 +669,7 @@ async def update_member_role(
         user_id=member_user.id,
         email=member_user.email,
         full_name=member_user.full_name,
-        role=cast(OrgRole, member.role),
+        role=payload.role,
         is_instance_admin=member_user.is_instance_admin,
         created_at=member.created_at,
     )

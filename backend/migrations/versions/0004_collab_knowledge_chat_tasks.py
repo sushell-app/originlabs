@@ -1,7 +1,7 @@
 """Collaboration tables: knowledge base, team chat and tasks.
 
-Revision ID: 0004_collab_knowledge_chat_tasks
-Revises: 0003_system_notifications_and_updates
+Revision ID: 0004_collab_tables
+Revises: 0003_system_updates
 Create Date: 2026-11-24
 """
 
@@ -10,8 +10,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0004_collab_knowledge_chat_tasks"
-down_revision: str | Sequence[str] | None = "0003_system_notifications_and_updates"
+revision: str = "0004_collab_tables"
+down_revision: str | Sequence[str] | None = "0003_system_updates"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

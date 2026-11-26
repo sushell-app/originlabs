@@ -1,6 +1,6 @@
 """System notifications and instance update tracking tables.
 
-Revision ID: 0003_system_notifications_and_updates
+Revision ID: 0003_system_updates
 Revises: 0002_projects_and_git
 Create Date: 2026-11-24
 """
@@ -10,7 +10,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0003_system_notifications_and_updates"
+revision: str = "0003_system_updates"
 down_revision: str | Sequence[str] | None = "0002_projects_and_git"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

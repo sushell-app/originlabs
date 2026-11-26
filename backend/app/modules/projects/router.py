@@ -573,7 +573,7 @@ async def assign_project_member(
         user_id=target_user.id,
         email=target_user.email,
         full_name=target_user.full_name,
-        role=cast(ProjectRole, member.role),
+        role=payload.role,
         created_at=member.created_at,
     )
 
