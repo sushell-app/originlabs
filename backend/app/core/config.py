@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     originlabs_release_channel: Literal["stable", "beta"] = "stable"
     originlabs_releases_url: str | None = None
     originlabs_releases_public_key: str | None = None
+    originlabs_static_dir: str | None = None
 
     database_url: str = (
         "postgresql+asyncpg://originlabs:originlabs_dev_password@postgres:5432/originlabs"
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
         "originlabs_encryption_key",
         "originlabs_releases_url",
         "originlabs_releases_public_key",
+        "originlabs_static_dir",
         "session_cookie_domain",
         mode="before",
     )

@@ -183,6 +183,20 @@ Comandos disponibles en [Makefile](Makefile):
 | `make check-py` | Compila/verifica sintaxis de `backend/`. |
 | `make check-bash` | Valida sintaxis de los scripts en `installer/`. |
 
+### Imagen única para VPS pequeños (`ghcr.io/sushell-app/originlabs`)
+
+Si usas un PaaS o un VPS pequeño que despliega **un solo contenedor** (apuntando a tu PostgreSQL 16 y Redis 7 gestionados), OriginLabs publica una imagen unificada (`linux/amd64` y `linux/arm64`) que incluye tanto el panel React como la API FastAPI:
+
+```bash
+docker run -d --name originlabs -p 8000:8000 \
+  -e ORIGINLABS_ENV=production \
+  -e ORIGINLABS_DOMAIN=panel.tu-dominio.com \
+  -e ORIGINLABS_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
+  -e DATABASE_URL="postgresql+asyncpg://user:pass@host:5432/originlabs" \
+  -e REDIS_URL="redis://host:6379/0" \
+  ghcr.io/sushell-app/originlabs:latest
+```
+
 ---
 
 ## Stack tecnológico y estructura
@@ -202,8 +216,9 @@ Comandos disponibles en [Makefile](Makefile):
 ├── infra/caddy/        # Plantillas Caddyfile para desarrollo y producción
 ├── installer/          # Scripts Bash de instalación y desinstalación (v0.1 en desarrollo)
 ├── docs/               # Documentación técnica (arquitectura, diseño, seguridad, updates)
+├── Dockerfile          # Imagen unificada (Frontend + Core API) publicada en GHCR
 ├── compose.dev.yml     # Stack completo para desarrollo local
-├── compose.prod.yml    # Stack de producción
+├── compose.prod.yml    # Stack de producción (usa ghcr.io/sushell-app/originlabs)
 ├── Makefile            # Atajos de desarrollo y validación
 └── LICENSE             # Licencia GNU AGPL-3.0
 ```

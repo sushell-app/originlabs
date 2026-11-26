@@ -1,6 +1,6 @@
 """ARQ background worker for async Docker, Git, restic and update-check jobs."""
 
-from typing import Any
+from typing import Any, cast
 
 from arq import cron
 from arq.connections import RedisSettings
@@ -36,5 +36,5 @@ class WorkerSettings:
     """ARQ worker configuration loaded from REDIS_URL."""
 
     functions = [ping_worker, check_updates_job]
-    cron_jobs = [cron(check_updates_job, hour={0, 6, 12, 18}, minute=15)]
+    cron_jobs = [cron(cast(Any, check_updates_job), hour={0, 6, 12, 18}, minute=15)]
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)

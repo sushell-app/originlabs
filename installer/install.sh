@@ -62,13 +62,25 @@ check_resources() {
   log "Recursos detectados (mínimos ESTIMADO): ${cpus} vCPU, ${ram_mb} MB RAM, ${disk_gb} GB libres en /"
 
   if (( cpus < MIN_CPU_CORES )); then
-    die "CPU insuficiente: se requieren al menos ${MIN_CPU_CORES} vCPU (estimado)."
+    if [[ "${DRY_RUN}" == "1" ]]; then
+      log "[DRY_RUN][WARN] CPU inferior al mínimo recomendado (${cpus} < ${MIN_CPU_CORES} vCPU)."
+    else
+      die "CPU insuficiente: se requieren al menos ${MIN_CPU_CORES} vCPU (estimado)."
+    fi
   fi
   if (( ram_mb < MIN_RAM_MB )); then
-    die "RAM insuficiente: se requieren al menos 4 GB (~${MIN_RAM_MB} MB útiles)."
+    if [[ "${DRY_RUN}" == "1" ]]; then
+      log "[DRY_RUN][WARN] RAM inferior al mínimo recomendado (${ram_mb} MB < ${MIN_RAM_MB} MB)."
+    else
+      die "RAM insuficiente: se requieren al menos 4 GB (~${MIN_RAM_MB} MB útiles)."
+    fi
   fi
   if (( disk_gb < MIN_DISK_GB )); then
-    die "Disco insuficiente: se requieren al menos 40 GB SSD (~${MIN_DISK_GB} GB libres)."
+    if [[ "${DRY_RUN}" == "1" ]]; then
+      log "[DRY_RUN][WARN] Disco libre inferior al mínimo recomendado (${disk_gb} GB < ${MIN_DISK_GB} GB)."
+    else
+      die "Disco insuficiente: se requieren al menos 40 GB SSD (~${MIN_DISK_GB} GB libres)."
+    fi
   fi
 }
 
