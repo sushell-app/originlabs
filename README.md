@@ -60,7 +60,7 @@ OriginLabs se encuentra en construcción activa hacia su primera **Beta Cerrada*
 - [ ] **Orquestador de `Workspaces` + Terminal:** contenedores `code-server` sin `root`, límites por clase, routing dinámico `ws-<id>.dominio` en Caddy y terminal `xterm.js` vía WebSocket.
 - [ ] **Monitoreo y control de saturación:** métricas en vivo del host/contenedores y control de admisión por recursos.
 - [ ] **Respaldos (`restic`) y actualización automática:** backups cifrados (local / S3), restauración desde el panel y *updater* con respaldo previo y rollback.
-- [ ] **Instalador completo (`install.sh`) y validación E2E:** pruebas completas en VPS limpios (Ubuntu 24.04 LTS, Ubuntu 22.04 LTS y Debian 12).
+- [x] **Instalador en 1 comando (`install.sh`) y validación E2E:** instalación automatizada en Ubuntu 22.04/24.04 LTS y Debian 12, migraciones automáticas y smoke tests en vivo en CI.
 
 ---
 
@@ -147,6 +147,24 @@ OriginLabs aplica **defensa en profundidad en 5 capas** para proteger tanto al s
 | **5. Auditoría, backups y updates** | Garantiza trazabilidad y recuperación segura ante fallos. | Bitácora de auditoría en PostgreSQL (`/api/v1/audit`), respaldos cifrados con **`restic`** hacia disco local o S3, y actualizaciones verificadas por firma **Ed25519** con respaldo previo obligatorio y *rollback* automático *(Módulo 8)*. |
 
 Para el detalle técnico de controles, sanitización y auditoría de dependencias, consulta [docs/security-sanitization.md](docs/security-sanitization.md).
+
+---
+
+## Instalación en 1 comando (VPS Linux)
+
+En un servidor limpio con **Ubuntu 22.04 LTS**, **Ubuntu 24.04 LTS** o **Debian 12** (`x86_64` o `ARM64`):
+
+**Con dominio propio y SSL automático (Let's Encrypt vía Caddy):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/sushell-app/originlabs/main/installer/install.sh | sudo bash -s -- --domain panel.tu-dominio.com
+```
+
+**Prueba rápida sin dominio (solo HTTP por puerto 80 / IP):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/sushell-app/originlabs/main/installer/install.sh | sudo bash -s -- --http-only
+```
+
+El instalador verifica el sistema operativo y recursos, instala Docker si falta, descarga la imagen única `ghcr.io/sushell-app/originlabs:latest`, genera secretos seguros en `/opt/originlabs/.env`, aplica las migraciones de PostgreSQL y levanta toda la plataforma mostrando el `bootstrap_token` inicial.
 
 ---
 

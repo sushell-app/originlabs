@@ -2,7 +2,7 @@
 
 import ipaddress
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -48,11 +48,12 @@ class Settings(BaseSettings):
         "originlabs_releases_url",
         "originlabs_releases_public_key",
         "originlabs_static_dir",
+        "session_cookie_secure",
         "session_cookie_domain",
         mode="before",
     )
     @classmethod
-    def _empty_str_to_none(cls, value: str | None) -> str | None:
+    def _empty_str_to_none(cls, value: Any) -> Any:
         if isinstance(value, str) and value.strip() == "":
             return None
         return value

@@ -139,53 +139,26 @@ jobs:
           done
 
   container-smoke:
-    name: Single Container Smoke Test
+    name: Single Container & 1-Command Installer E2E
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Build unified OriginLabs container image
         run: docker build -t originlabs:ci .
-      - name: Run live container smoke test
+      - name: Install OriginLabs with 1-command installer and verify HTTP
         run: |
-          docker network create ol-ci-net
-          docker run -d --name ol-pg --network ol-ci-net \
-            -e POSTGRES_DB=originlabs -e POSTGRES_USER=originlabs -e POSTGRES_PASSWORD=originlabs \
-            postgres:16-alpine
-          docker run -d --name ol-redis --network ol-ci-net redis:7-alpine
-
-          for i in $(seq 1 30); do
-            if docker exec ol-pg pg_isready -U originlabs -d originlabs >/dev/null 2>&1 \
-              && docker exec ol-redis redis-cli ping >/dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-
-          docker run --rm --network ol-ci-net \
-            -e DATABASE_URL=postgresql+asyncpg://originlabs:originlabs@ol-pg:5432/originlabs \
-            -e REDIS_URL=redis://ol-redis:6379/0 \
-            originlabs:ci alembic upgrade head
-
-          docker run -d --name ol-app --network ol-ci-net -p 8000:8000 \
-            -e ORIGINLABS_ENV=development \
-            -e ORIGINLABS_DOMAIN=localhost \
-            -e ORIGINLABS_ENCRYPTION_KEY=ci-test-encryption-key-32-bytes-ok \
-            -e DATABASE_URL=postgresql+asyncpg://originlabs:originlabs@ol-pg:5432/originlabs \
-            -e REDIS_URL=redis://ol-redis:6379/0 \
-            originlabs:ci
-
-          for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1; then
-              break
-            fi
-            sleep 1
-          done
-
-          curl -fsS http://127.0.0.1:8000/ | grep -q "OriginLabs"
-          curl -fsS http://127.0.0.1:8000/api/v1/health | grep -q '"status":"ok"'
-          curl -fsS http://127.0.0.1:8000/api/v1/meta | grep -q '"edition":"community"'
-      - name: Cleanup test containers
+          sudo bash installer/install.sh \
+            --domain localhost \
+            --http-only \
+            --skip-resource-check \
+            --image originlabs:ci \
+            --local-source "$PWD" \
+            --install-dir /tmp/originlabs-ci-install
+          curl -fsS http://127.0.0.1/ | grep -q "OriginLabs"
+          curl -fsS http://127.0.0.1/api/v1/health | grep -q '"status":"ok"'
+          curl -fsS http://127.0.0.1/api/v1/meta | grep -q '"setup_required":true'
+      - name: Uninstall cleanly with uninstall.sh --purge
         if: always()
         run: |
-          docker rm -f ol-app ol-pg ol-redis 2>/dev/null || true
-          docker network rm ol-ci-net 2>/dev/null || true
+          sudo ORIGINLABS_INSTALL_DIR=/tmp/originlabs-ci-install bash installer/uninstall.sh --purge || true
+          docker compose --project-directory /tmp/originlabs-ci-install -f /tmp/originlabs-ci-install/compose.prod.yml down -v --remove-orphans 2>/dev/null || true
