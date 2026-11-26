@@ -10,15 +10,15 @@ from app.core.database import async_session_factory
 from app.modules.system.updates import check_for_updates, get_or_create_update_state
 
 
-async def ping_worker(ctx: dict[str, Any], source: str = "system") -> dict[str, str]:
+async def ping_worker(ctx: dict[Any, Any], source: str = "system") -> dict[str, str]:
     """Sanity-check background job used to verify Redis worker execution."""
     _ = ctx
     return {"status": "ok", "source": source}
 
 
-async def check_updates_job(ctx: dict[str, Any]) -> dict[str, Any]:
+async def check_updates_job(ctx: dict[Any, Any], *_args: Any, **_kwargs: Any) -> dict[str, Any]:
     """Periodic job checking signed releases and creating admin notifications."""
-    _ = ctx
+    _ = (ctx, _args, _kwargs)
     async with async_session_factory() as db:
         state = await get_or_create_update_state(db)
         if not state.auto_check_enabled:

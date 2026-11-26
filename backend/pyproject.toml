@@ -51,7 +51,7 @@ strict = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["redis.*", "arq.*", "docker.*"]
+module = ["redis", "redis.*", "arq", "arq.*", "docker", "docker.*", "argon2", "argon2.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

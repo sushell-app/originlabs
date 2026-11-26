@@ -1,11 +1,13 @@
 """Async Redis client helper and connectivity health check."""
 
+from typing import Any
+
 from redis.asyncio import Redis
 
 from app.core.config import get_settings
 
 
-def get_redis() -> Redis:
+def get_redis() -> Any:
     """Create an async Redis client from configured REDIS_URL."""
     settings = get_settings()
     return Redis.from_url(settings.redis_url, decode_responses=True)

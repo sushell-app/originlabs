@@ -10,14 +10,13 @@ RUN groupadd --system originlabs \
     && useradd --system --gid originlabs --create-home originlabs
 
 COPY pyproject.toml ./
-RUN pip install --upgrade pip \
-    && pip install .
-
 COPY app ./app
 COPY alembic.ini ./
 COPY migrations ./migrations
 
-RUN chown -R originlabs:originlabs /app
+RUN pip install --upgrade pip \
+    && pip install . \
+    && chown -R originlabs:originlabs /app
 USER originlabs
 
 EXPOSE 8000

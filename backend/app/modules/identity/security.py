@@ -12,7 +12,7 @@ _password_hasher = PasswordHasher()
 
 def hash_password(password: str) -> str:
     """Hash a plaintext password using Argon2id."""
-    return _password_hasher.hash(password)
+    return str(_password_hasher.hash(password))
 
 
 def verify_password(password: str, password_hash: str) -> bool:

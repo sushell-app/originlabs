@@ -31,6 +31,7 @@ services:
       - originlabs_net
 
   api:
+    image: ${ORIGINLABS_API_IMAGE:-ghcr.io/sushell-app/originlabs-api:latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -57,6 +58,7 @@ services:
       - originlabs_net
 
   worker:
+    image: ${ORIGINLABS_API_IMAGE:-ghcr.io/sushell-app/originlabs-api:latest}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -79,6 +81,7 @@ services:
       - originlabs_net
 
   frontend-assets:
+    image: ${ORIGINLABS_FRONTEND_IMAGE:-ghcr.io/sushell-app/originlabs-frontend:latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
