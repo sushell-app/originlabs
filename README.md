@@ -27,14 +27,25 @@ Compatible con **Ubuntu 22.04 / 24.04 / 26.04 LTS** y **Debian 12 / 13** (`x86_6
 
 <table>
 <tr>
-<th>Con dominio propio + HTTPS automático (Let's Encrypt)</th>
+<th>Instalación interactiva en 1 comando (te pregunta el dominio o usa HTTP :80)</th>
 </tr>
 <tr>
 <td>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sushell-app/originlabs/main/installer/install.sh \
-  | sudo bash -s -- --domain panel.tu-dominio.com
+curl -fsSL https://sushell.com/labs | sudo bash
+```
+
+</td>
+</tr>
+<tr>
+<th>Con dominio propio + HTTPS automático (no interactivo)</th>
+</tr>
+<tr>
+<td>
+
+```bash
+curl -fsSL https://sushell.com/labs | sudo bash -s -- --domain panel.tu-dominio.com
 ```
 
 </td>
@@ -46,8 +57,7 @@ curl -fsSL https://raw.githubusercontent.com/sushell-app/originlabs/main/install
 <td>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sushell-app/originlabs/main/installer/install.sh \
-  | sudo bash -s -- --http-only
+curl -fsSL https://sushell.com/labs | sudo bash -s -- --http-only
 ```
 
 </td>
