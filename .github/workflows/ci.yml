@@ -130,7 +130,14 @@ jobs:
         run: |
           bash -n installer/install.sh
           bash -n installer/uninstall.sh
-          shellcheck installer/install.sh installer/uninstall.sh
+          set +e
+          sc_out=$(shellcheck -f gcc installer/install.sh installer/uninstall.sh 2>&1)
+          sc_rc=$?
+          echo "$sc_out"
+          if [ "$sc_rc" -ne 0 ]; then
+            echo "$sc_out" | sed -nE 's|^([^:]+):([0-9]+):[0-9]+: (.*)$|::error file=\1,line=\2::\3|p'
+          fi
+          exit "$sc_rc"
       - name: Test installer dry-run on Ubuntu 22.04, 24.04 & Debian 12
         run: |
           for image in ubuntu:22.04 ubuntu:24.04 debian:12; do
@@ -147,18 +154,31 @@ jobs:
         run: docker build -t originlabs:ci .
       - name: Install OriginLabs with 1-command installer and verify HTTP
         run: |
-          sudo bash installer/install.sh \
-            --domain localhost \
-            --http-only \
-            --skip-resource-check \
-            --image originlabs:ci \
-            --local-source "$PWD" \
-            --install-dir /tmp/originlabs-ci-install
-          curl -fsS http://127.0.0.1/ | grep -q "OriginLabs"
-          curl -fsS http://127.0.0.1/api/v1/health | grep -q '"status":"ok"'
-          curl -fsS http://127.0.0.1/api/v1/meta | grep -q '"setup_required":true'
+          set +e
+          (
+            set -e
+            sudo bash installer/install.sh \
+              --domain localhost \
+              --http-only \
+              --skip-resource-check \
+              --image originlabs:ci \
+              --local-source "$PWD" \
+              --install-dir /tmp/originlabs-ci-install
+            curl -fsS http://127.0.0.1/ | grep -q "OriginLabs"
+            curl -fsS http://127.0.0.1/api/v1/health | grep -q '"status":"ok"'
+            curl -fsS http://127.0.0.1/api/v1/meta | grep -q '"setup_required":true'
+          ) > /tmp/smoke.log 2>&1
+          smoke_rc=$?
+          cat /tmp/smoke.log
+          if [ "$smoke_rc" -ne 0 ]; then
+            docker compose --project-directory /tmp/originlabs-ci-install -f /tmp/originlabs-ci-install/compose.prod.yml ps -a || true
+            docker compose --project-directory /tmp/originlabs-ci-install -f /tmp/originlabs-ci-install/compose.prod.yml logs --tail=40 || true
+            last_err=$(grep -v '^[[:space:]]*$' /tmp/smoke.log | tail -n 1 || true)
+            echo "::error::${last_err:-Smoke test failed}"
+          fi
+          exit "$smoke_rc"
       - name: Uninstall cleanly with uninstall.sh --purge
         if: always()
         run: |
-          sudo ORIGINLABS_INSTALL_DIR=/tmp/originlabs-ci-install bash installer/uninstall.sh --purge || true
+          sudo env ORIGINLABS_INSTALL_DIR=/tmp/originlabs-ci-install bash installer/uninstall.sh --purge || true
           docker compose --project-directory /tmp/originlabs-ci-install -f /tmp/originlabs-ci-install/compose.prod.yml down -v --remove-orphans 2>/dev/null || true

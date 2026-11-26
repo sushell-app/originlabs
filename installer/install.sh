@@ -167,20 +167,21 @@ check_ports() {
     return 0
   fi
 
-  local ports_to_check port
-  ports_to_check="80"
+  local -a ports_to_check
+  local port
+  ports_to_check=(80)
   if [[ "${HTTP_ONLY}" != "1" ]]; then
-    ports_to_check="80 443"
+    ports_to_check=(80 443)
   fi
 
-  for port in ${ports_to_check}; do
+  for port in "${ports_to_check[@]}"; do
     if command -v ss >/dev/null 2>&1; then
       if ss -tuln | awk '{print $5}' | grep -qE "(^|:)${port}$"; then
         die "El puerto ${port} ya está en uso. Libera los puertos 80/443 antes de instalar OriginLabs."
       fi
     fi
   done
-  log "Puertos requeridos disponibles (${ports_to_check})."
+  log "Puertos requeridos disponibles (${ports_to_check[*]})."
 }
 
 run_prechecks() {
@@ -223,10 +224,12 @@ resolve_domain() {
 }
 
 generate_secret() {
+  local bytes
+  bytes="${1:-32}"
   if command -v openssl >/dev/null 2>&1; then
-    openssl rand -hex 32
+    openssl rand -hex "${bytes}"
   else
-    od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+    od -An -N"${bytes}" -tx1 /dev/urandom | tr -d ' \n'
   fi
 }
 
@@ -283,10 +286,10 @@ write_env_file() {
     return 0
   fi
 
-  pg_pass="$(generate_secret | cut -c1-32)"
-  secret_key="$(generate_secret)"
-  enc_key="$(generate_secret)"
-  bootstrap_token="$(generate_secret | cut -c1-32)"
+  pg_pass="$(generate_secret 16)"
+  secret_key="$(generate_secret 32)"
+  enc_key="$(generate_secret 32)"
+  bootstrap_token="$(generate_secret 16)"
 
   cookie_secure="true"
   if [[ "${HTTP_ONLY}" == "1" ]]; then
@@ -337,7 +340,11 @@ deploy_stack() {
   write_env_file
 
   log "Descargando imagen (${IMAGE}) y levantando servicios..."
-  docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" pull || true
+  if [[ "${IMAGE}" == */* ]]; then
+    docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" pull
+  else
+    docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" pull postgres redis caddy
+  fi
   docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" up -d --no-build
 }
 
@@ -347,10 +354,10 @@ wait_for_health() {
   fi
 
   log "4/5 · Verificando migraciones, Caddy y salud del servicio..."
-  local attempt ready
+  local i ready
   ready=0
 
-  for attempt in $(seq 1 60); do
+  for ((i = 1; i <= 60; i++)); do
     if docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" \
       exec -T api python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')" >/dev/null 2>&1; then
       ready=1
@@ -365,7 +372,7 @@ wait_for_health() {
   fi
 
   if [[ "${HTTP_ONLY}" == "1" ]]; then
-    for attempt in $(seq 1 15); do
+    for ((i = 1; i <= 15; i++)); do
       if curl -fsS http://127.0.0.1/api/v1/health >/dev/null 2>&1; then
         break
       fi
