@@ -60,7 +60,7 @@ OriginLabs se encuentra en construcción activa hacia su primera **Beta Cerrada*
 - [ ] **Orquestador de `Workspaces` + Terminal:** contenedores `code-server` sin `root`, límites por clase, routing dinámico `ws-<id>.dominio` en Caddy y terminal `xterm.js` vía WebSocket.
 - [ ] **Monitoreo y control de saturación:** métricas en vivo del host/contenedores y control de admisión por recursos.
 - [ ] **Respaldos (`restic`) y actualización automática:** backups cifrados (local / S3), restauración desde el panel y *updater* con respaldo previo y rollback.
-- [x] **Instalador en 1 comando (`install.sh`) y validación E2E:** instalación automatizada en Ubuntu 22.04/24.04 LTS y Debian 12, migraciones automáticas y smoke tests en vivo en CI.
+- [x] **Instalador en 1 comando (`install.sh`) y validación E2E:** instalación automatizada en Ubuntu 22.04/24.04/26.04 LTS y Debian 12/13, migraciones automáticas y smoke tests en vivo en CI.
 
 ---
 
@@ -105,7 +105,7 @@ Internet / Equipo Dev (HTTPS 80/443)
 | **CPU** | 2 vCPU | 8 vCPU |
 | **RAM** | 4 GB | 16–32 GB |
 | **Disco** | 40 GB SSD | 200 GB NVMe |
-| **SO soportados** | Ubuntu 22.04 LTS · Ubuntu 24.04 LTS · Debian 12 | Ubuntu 22.04 LTS · Ubuntu 24.04 LTS · Debian 12 |
+| **SO soportados** | Ubuntu 22.04 / 24.04 / 26.04 LTS · Debian 12 / 13 | Ubuntu 22.04 / 24.04 / 26.04 LTS · Debian 12 / 13 |
 | **Arquitectura** | `x86_64` y `ARM64` | `x86_64` y `ARM64` |
 | **Dominio** | Dominio propio con DNS comodín (`*.dominio`) | Dominio propio con DNS comodín (`*.dominio`) |
 | **Puertos** | `80` y `443` (web y SSL) · `22` (SSH de administración) | `80` y `443` (web y SSL) · `22` (SSH de administración) |
@@ -152,7 +152,7 @@ Para el detalle técnico de controles, sanitización y auditoría de dependencia
 
 ## Instalación en 1 comando (VPS Linux)
 
-En un servidor limpio con **Ubuntu 22.04 LTS**, **Ubuntu 24.04 LTS** o **Debian 12** (`x86_64` o `ARM64`):
+En un servidor limpio con **Ubuntu 22.04 / 24.04 / 26.04 LTS** o **Debian 12 / 13** (`x86_64` o `ARM64`):
 
 **Con dominio propio y SSL automático (Let's Encrypt vía Caddy):**
 ```bash

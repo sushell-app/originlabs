@@ -103,11 +103,11 @@ check_os() {
   version="${VERSION_ID:-}"
 
   case "${id}:${version}" in
-    ubuntu:22.04|ubuntu:24.04|debian:12)
+    ubuntu:22.04|ubuntu:24.04|ubuntu:26.04|debian:12|debian:13)
       log "SO soportado detectado: ${PRETTY_NAME:-$id $version}"
       ;;
     *)
-      die "SO no soportado (${id} ${version}). Solo se soporta Ubuntu 22.04 LTS, Ubuntu 24.04 LTS y Debian 12."
+      die "SO no soportado (${id} ${version}). Solo se soporta Ubuntu 22.04/24.04/26.04 LTS y Debian 12/13."
       ;;
   esac
 }
