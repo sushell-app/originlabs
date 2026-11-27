@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 import docker
 import httpx
-from docker.errors import DockerException, NotFound
+from docker.errors import DockerException, ImageNotFound, NotFound
 
 WorkspaceClass = Literal["light", "standard", "heavy"]
 
@@ -32,10 +32,10 @@ WORKSPACE_CLASS_SPECS: dict[WorkspaceClass, WorkspaceClassSpec] = {
 
 
 def build_workspace_url(subdomain: str, domain: str, *, secure: bool) -> str:
-    """Build external workspace IDE URL for a subdomain and instance base domain."""
+    """Build external workspace IDE URL on same origin for Caddy forward_auth routing."""
     clean_host = domain.split(":")[0].strip().lower() or "localhost"
     scheme = "https" if secure else "http"
-    return f"{scheme}://{subdomain}.{clean_host}"
+    return f"{scheme}://{clean_host}/ws/{subdomain}/"
 
 
 def build_workspace_container_spec(
@@ -160,9 +160,13 @@ class WorkspaceOrchestrator:
 
         try:
             existing = client.containers.get(container_name)
-            if existing.status != "running":
+            if existing.status == "running":
+                return str(existing.id)
+            if existing.status in {"created", "exited", "paused"}:
                 existing.start()
-            return str(existing.id)
+                existing.reload()
+                return str(existing.id)
+            existing.remove(force=True)
         except NotFound:
             pass
         except DockerException as exc:
@@ -187,7 +191,12 @@ class WorkspaceOrchestrator:
             )
 
         try:
+            try:
+                client.images.get(image)
+            except ImageNotFound:
+                client.images.pull(image)
             container = client.containers.run(**spec)
+            container.reload()
             return str(container.id)
         except DockerException as exc:
             raise RuntimeError(f"No se pudo iniciar el contenedor del workspace: {exc}") from exc

@@ -472,6 +472,7 @@ async def workspace_terminal_ws(
                     continue
                 ws.last_activity_at = datetime.now(UTC)
                 await db.commit()
+                await db.refresh(ws)
 
                 if ws.status != "running":
                     await websocket.send_text(

@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import {
   ApiError,
+  applySystemUpdate,
+  getMeta,
   markAllNotificationsRead,
   markNotificationRead,
   triggerUpdateCheck,
@@ -39,6 +41,7 @@ export default function NotificationsView({
   const [webhookUrl, setWebhookUrl] = useState<string>(updateStatus?.webhook_url ?? "");
   const [webhookSecret, setWebhookSecret] = useState<string>("");
   const [checking, setChecking] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +66,42 @@ export default function NotificationsView({
       );
     } finally {
       setChecking(false);
+    }
+  }
+
+  async function handleApplyUpdate() {
+    const target = updateStatus?.latest_available_version;
+    if (!target) return;
+    setUpdating(true);
+    setError(null);
+    setMessage(
+      `Descargando imagen v${target} y reiniciando servicios. Esto puede tardar 30–60 s...`
+    );
+    try {
+      await applySystemUpdate(target);
+      for (let attempt = 0; attempt < 35; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        try {
+          const meta = await getMeta();
+          if (meta.version === target) {
+            await onRefresh();
+            setMessage(`OriginLabs actualizado a v${target} correctamente.`);
+            return;
+          }
+        } catch {
+          // Container restart in progress; keep polling until API responds cleanly.
+        }
+      }
+      await onRefresh();
+      setMessage(
+        `Actualización a v${target} enviada. Recarga la página si el servicio aún está reiniciando.`
+      );
+    } catch (err: unknown) {
+      setError(
+        err instanceof ApiError ? err.detail : "No se pudo aplicar la actualización automática."
+      );
+    } finally {
+      setUpdating(false);
     }
   }
 
@@ -124,15 +163,31 @@ export default function NotificationsView({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void handleCheckNow()}
-          disabled={checking}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#7C5CFF] hover:bg-[#8B6BFF] disabled:opacity-50 px-3.5 py-2 text-xs font-semibold text-white transition-colors"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${checking ? "animate-spin" : ""}`} />
-          {checking ? "Verificando..." : "Buscar actualizaciones"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {updateStatus?.update_available && updateStatus.latest_available_version && (
+            <button
+              type="button"
+              onClick={() => void handleApplyUpdate()}
+              disabled={updating || checking}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#34D399] hover:bg-[#10B981] disabled:opacity-50 px-3.5 py-2 text-xs font-semibold text-[#0B0B0D] transition-colors"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${updating ? "animate-spin" : ""}`} />
+              {updating
+                ? "Actualizando..."
+                : `Actualizar ahora a v${updateStatus.latest_available_version}`}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void handleCheckNow()}
+            disabled={checking || updating}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#7C5CFF] hover:bg-[#8B6BFF] disabled:opacity-50 px-3.5 py-2 text-xs font-semibold text-white transition-colors"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${checking ? "animate-spin" : ""}`} />
+            {checking ? "Verificando..." : "Buscar actualizaciones"}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -152,7 +207,7 @@ export default function NotificationsView({
         <div className="rounded-xl border border-[#2D2D32] bg-[#1E1E21] p-4">
           <p className="text-xs text-[#A1A1AA]">Versión instalada</p>
           <p className="text-xl font-semibold text-[#F4F4F6] mt-2 tabular-nums">
-            {updateStatus?.current_version ?? "0.1.0"}
+            {updateStatus?.current_version ?? "0.1.1"}
           </p>
           <p className="text-[11px] text-[#71717A] mt-1 capitalize">
             Canal: {updateStatus?.channel ?? "stable"}

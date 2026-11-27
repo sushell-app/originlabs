@@ -8,6 +8,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import ValidationError
 
 from app.modules.system.schemas import UpdateSettingsRequest
+from app.modules.system.updater import (
+    DEFAULT_IMAGE_REPO,
+    build_updater_container_spec,
+    validate_target_version,
+)
 from app.modules.system.updates import (
     canonical_manifest_bytes,
     is_newer_version,
@@ -57,3 +62,29 @@ def test_webhook_url_requires_https() -> None:
 
     with pytest.raises(ValidationError):
         UpdateSettingsRequest(webhook_url="http://insecure.example.com/hook")
+
+
+def test_updater_container_spec_validation_and_security() -> None:
+    assert validate_target_version("v0.1.1") == "0.1.1"
+    spec = build_updater_container_spec(
+        target_version="v0.1.1",
+        working_dir="/opt/originlabs",
+        compose_file="/opt/originlabs/compose.prod.yml",
+        project_name="originlabs",
+        nonce="deadbeef",
+    )
+    assert spec["name"] == "originlabs-updater-deadbeef"
+    assert spec["auto_remove"] is True
+    assert spec["environment"]["DOCKER_HOST"] == "tcp://docker-proxy:2375"
+    assert spec["environment"]["ORIGINLABS_TARGET_IMAGE"] == f"{DEFAULT_IMAGE_REPO}:0.1.1"
+
+    with pytest.raises(ValueError):
+        validate_target_version("0.1.1; rm -rf /")
+
+    with pytest.raises(ValueError):
+        build_updater_container_spec(
+            target_version="0.1.1",
+            working_dir="/opt/originlabs;id",
+            compose_file="/opt/originlabs/compose.prod.yml",
+            project_name="originlabs",
+        )

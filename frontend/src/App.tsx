@@ -488,7 +488,7 @@ export default function App() {
         <div className="p-4 border-t border-[#2C2C31] space-y-2 text-xs">
           <div className="flex items-center justify-between text-[#71717A] px-1 tabular-nums">
             <span className="capitalize">{meta?.edition ?? "community"}</span>
-            <span>{meta?.version ?? "0.1.0"}</span>
+            <span>{meta?.version ?? "0.1.1"}</span>
           </div>
           <button
             type="button"
@@ -549,7 +549,7 @@ export default function App() {
                 onClick={() => setSection("notifications")}
                 className="rounded-md border border-[#3F3F46] bg-[#2B2B30] px-2.5 py-1 text-[11px] text-[#F4F4F5]"
               >
-                Ver detalles
+                Ver y actualizar
               </button>
             </div>
           )}

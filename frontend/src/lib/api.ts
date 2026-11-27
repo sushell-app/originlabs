@@ -928,3 +928,19 @@ export function triggerManualBackup(): Promise<BackupSnapshotPublic> {
     method: "POST",
   });
 }
+
+export interface UpdateApplyResponse {
+  accepted: boolean;
+  from_version: string;
+  target_version: string;
+  target_image: string;
+  updater_container_id: string;
+  message: string;
+}
+
+export function applySystemUpdate(targetVersion?: string): Promise<UpdateApplyResponse> {
+  return request<UpdateApplyResponse>("/system/updates/apply", {
+    method: "POST",
+    body: JSON.stringify(targetVersion ? { target_version: targetVersion } : {}),
+  });
+}

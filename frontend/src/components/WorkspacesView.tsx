@@ -241,6 +241,12 @@ export default function WorkspacesView({
         </div>
       )}
 
+      {busyId && busyId !== "create" && (
+        <div className="rounded-xl border border-[#2C2C31] bg-[#1C1C1F] px-4 py-3 text-xs text-[#D4D4D8]">
+          Orquestando contenedor del workspace... La primera descarga de code-server (~400 MB) puede tardar 30–60 s.
+        </div>
+      )}
+
       {projects.length === 0 && (
         <div className="rounded-xl border border-[#2C2C31] bg-[#1C1C1F] px-4 py-3 text-xs text-[#A1A1AA]">
           Crea primero un proyecto en <strong className="text-[#F4F4F5]">Projects</strong> para
@@ -416,7 +422,7 @@ export default function WorkspacesView({
                     {running ? (
                       <>
                         <a
-                          href={ws.ide_url}
+                          href={`/ws/${ws.subdomain}/`}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-1 rounded-lg border border-[#3F3F46] bg-[#2B2B30] hover:bg-[#35353B] px-3 py-1.5 text-xs text-[#F4F4F5]"

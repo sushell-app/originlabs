@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "OriginLabs Core API"
-    app_version: str = "0.1.0"
+    app_version: str = "0.1.1"
     originlabs_env: str = "development"
     originlabs_domain: str = "localhost"
     originlabs_secret_key: str = "change-me-in-production"
@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     )
     redis_url: str = "redis://redis:6379/0"
     caddy_admin_url: str = "http://caddy:2019"
+    docker_host: str = "tcp://docker-proxy:2375"
 
     session_cookie_name: str = "originlabs_session"
     session_ttl_seconds: int = 60 * 60 * 24 * 7

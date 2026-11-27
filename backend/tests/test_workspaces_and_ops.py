@@ -12,6 +12,7 @@ from app.modules.workspaces.orchestrator import (
     WORKSPACES_NETWORK_NAME,
     build_caddy_workspace_route,
     build_workspace_container_spec,
+    build_workspace_url,
 )
 from app.modules.workspaces.schemas import WorkspaceCreateRequest
 
@@ -145,3 +146,28 @@ def test_workspace_and_backup_schemas() -> None:
 
     with pytest.raises(ValidationError):
         BackupConfigUpdateRequest(provider="local", repository="bad;cmd")
+
+
+def test_workspace_url_and_small_vps_admission() -> None:
+    assert (
+        build_workspace_url("ws-12345678", "labs.sushell.com", secure=True)
+        == "https://labs.sushell.com/ws/ws-12345678/"
+    )
+    vps_4gb = HostMetrics(
+        hostname="vps-small",
+        os_name="Linux",
+        arch="x86_64",
+        cpu_cores=2,
+        load_avg_1m=0.3,
+        ram_total_mb=4096,
+        ram_available_mb=2200,
+        ram_used_pct=46.3,
+        disk_total_gb=40.0,
+        disk_free_gb=22.0,
+        disk_used_pct=45.0,
+        docker_available=True,
+        running_workspaces=0,
+        allocated_cpu_cores=0.0,
+        allocated_ram_mb=0,
+    )
+    assert evaluate_admission(vps_4gb, "standard").allowed is True

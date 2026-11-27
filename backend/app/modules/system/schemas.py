@@ -160,3 +160,20 @@ class BackupSnapshotPublic(BaseModel):
     summary: str
     started_at: datetime
     completed_at: datetime | None
+
+
+class UpdateApplyRequest(BaseModel):
+    """Trigger 1-click self-update to a validated target version."""
+
+    target_version: str | None = Field(default=None, max_length=64)
+
+
+class UpdateApplyResponse(BaseModel):
+    """Result of launching the detached Docker Compose self-updater."""
+
+    accepted: bool
+    from_version: str
+    target_version: str
+    target_image: str
+    updater_container_id: str
+    message: str

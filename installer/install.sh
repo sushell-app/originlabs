@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# OriginLabs 1-Command Installer (v0.1.0)
+# OriginLabs 1-Command Installer (v0.1.1)
 # No requiere Python en el host; toda la plataforma corre en Docker.
 
 MIN_CPU_CORES=2
@@ -260,7 +260,26 @@ write_caddyfile() {
 
 :80 {
 	encode gzip zstd
-	reverse_proxy api:8000
+
+	@ws_noslash path_regexp wsnoslash ^/ws/(ws-[a-f0-9]{8})$
+	redir @ws_noslash /ws/{re.wsnoslash.1}/ 308
+
+	@workspace path_regexp ws ^/ws/ws-([a-f0-9]{8})(/.*)$
+	handle @workspace {
+		forward_auth api:8000 {
+			uri /api/v1/internal/forward-auth
+			copy_headers X-OriginLabs-User-Id X-OriginLabs-User-Email X-OriginLabs-Is-Admin
+		}
+		uri path_regexp ^/ws/ws-[a-f0-9]{8}(/.*)$ $1
+		reverse_proxy ol-ws-{re.ws.1}:8080 {
+			header_up Host {host}
+			header_up X-Forwarded-Prefix /ws/ws-{re.ws.1}
+		}
+	}
+
+	handle {
+		reverse_proxy api:8000
+	}
 }
 EOF
   else
@@ -271,7 +290,26 @@ EOF
 
 {$ORIGINLABS_DOMAIN} {
 	encode gzip zstd
-	reverse_proxy api:8000
+
+	@ws_noslash path_regexp wsnoslash ^/ws/(ws-[a-f0-9]{8})$
+	redir @ws_noslash /ws/{re.wsnoslash.1}/ 308
+
+	@workspace path_regexp ws ^/ws/ws-([a-f0-9]{8})(/.*)$
+	handle @workspace {
+		forward_auth api:8000 {
+			uri /api/v1/internal/forward-auth
+			copy_headers X-OriginLabs-User-Id X-OriginLabs-User-Email X-OriginLabs-Is-Admin
+		}
+		uri path_regexp ^/ws/ws-[a-f0-9]{8}(/.*)$ $1
+		reverse_proxy ol-ws-{re.ws.1}:8080 {
+			header_up Host {host}
+			header_up X-Forwarded-Prefix /ws/ws-{re.ws.1}
+		}
+	}
+
+	handle {
+		reverse_proxy api:8000
+	}
 }
 EOF
   fi

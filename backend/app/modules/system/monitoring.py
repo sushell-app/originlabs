@@ -123,10 +123,15 @@ def collect_host_metrics(
     )
 
 
+_STARTUP_RAM_REQUIRED_MB: dict[WorkspaceClass, int] = {
+    "light": 384,
+    "standard": 768,
+    "heavy": 1536,
+}
+
+
 def evaluate_admission(metrics: HostMetrics, workspace_class: WorkspaceClass) -> AdmissionDecision:
     """Decide whether the host can safely start another workspace of the given class."""
-    spec = WORKSPACE_CLASS_SPECS[workspace_class]
-
     if metrics.disk_free_gb < 5.0:
         return AdmissionDecision(
             workspace_class=workspace_class,
@@ -139,26 +144,27 @@ def evaluate_admission(metrics: HostMetrics, workspace_class: WorkspaceClass) ->
         )
 
     if metrics.ram_total_mb > 0:
-        ram_used_mb = metrics.ram_total_mb - metrics.ram_available_mb
-        projected_pct = ((ram_used_mb + spec.ram_mb) / metrics.ram_total_mb) * 100.0
-        if projected_pct > 92.0:
+        required_mb = _STARTUP_RAM_REQUIRED_MB[workspace_class]
+        if metrics.ram_available_mb < required_mb or metrics.ram_used_pct >= 90.0:
             return AdmissionDecision(
                 workspace_class=workspace_class,
                 allowed=False,
                 severity="blocked",
                 reason=(
-                    f"RAM insuficiente: iniciar clase '{workspace_class}' ({spec.ram_mb} MB) "
-                    f"llevaría el uso al {projected_pct:.1f}% (límite seguro: 92%)."
+                    f"RAM insuficiente: iniciar clase '{workspace_class}' requiere ~{required_mb} "
+                    f"MB libres (disponibles: {metrics.ram_available_mb} MB, "
+                    f"uso actual: {metrics.ram_used_pct:.1f}%)."
                 ),
             )
-        if projected_pct > 75.0 or metrics.disk_used_pct > 80.0:
+        remaining_mb = metrics.ram_available_mb - required_mb
+        if remaining_mb < 768 or metrics.disk_used_pct > 80.0:
             return AdmissionDecision(
                 workspace_class=workspace_class,
                 allowed=True,
                 severity="warning",
                 reason=(
-                    f"Carga elevada: uso proyectado de RAM {projected_pct:.1f}% "
-                    f"y disco {metrics.disk_used_pct:.1f}%."
+                    f"Carga elevada: quedarían {remaining_mb} MB libres "
+                    f"y disco al {metrics.disk_used_pct:.1f}%."
                 ),
             )
 

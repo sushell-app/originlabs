@@ -36,9 +36,12 @@ from app.modules.system.schemas import (
     NotificationsListResponse,
     ReleaseChannel,
     SystemNotificationPublic,
+    UpdateApplyRequest,
+    UpdateApplyResponse,
     UpdateSettingsRequest,
     UpdateStatusResponse,
 )
+from app.modules.system.updater import trigger_self_update, validate_target_version
 from app.modules.system.updates import (
     check_for_updates,
     get_or_create_update_state,
@@ -177,6 +180,83 @@ async def trigger_update_check(
     )
     await db.commit()
     return _serialize_update_status(result.state, warning=result.warning)
+
+
+@system_router.post(
+    "/updates/apply",
+    response_model=UpdateApplyResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def apply_system_update(
+    request: Request,
+    payload: UpdateApplyRequest | None = None,
+    admin: User = Depends(require_instance_admin),
+    db: AsyncSession = Depends(get_db),
+) -> UpdateApplyResponse:
+    """Launch detached Docker Compose updater to upgrade OriginLabs in 1 click."""
+    settings = get_settings()
+    state = await get_or_create_update_state(db)
+    raw_target = (
+        (payload.target_version if payload else None)
+        or state.latest_available_version
+        or ""
+    )
+
+    try:
+        clean_target = validate_target_version(raw_target)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        launch = await asyncio.to_thread(trigger_self_update, clean_target)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    db.add(
+        SystemNotification(
+            category="update",
+            severity="info",
+            title=f"Actualización iniciada: v{launch.target_version}",
+            message=(
+                f"Se lanzó la actualización desde {settings.app_version} hacia "
+                f"v{launch.target_version} ({launch.target_image})."
+            ),
+            target_version=launch.target_version,
+            details={"updater_container_id": launch.updater_container_id},
+        )
+    )
+    await record_audit_event(
+        db,
+        action="system.update_apply_started",
+        resource_type="instance_update_state",
+        resource_id="1",
+        actor=admin,
+        ip_address=get_client_ip(request),
+        details={
+            "from_version": settings.app_version,
+            "target_version": launch.target_version,
+            "target_image": launch.target_image,
+        },
+    )
+    await db.commit()
+
+    return UpdateApplyResponse(
+        accepted=True,
+        from_version=settings.app_version,
+        target_version=launch.target_version,
+        target_image=launch.target_image,
+        updater_container_id=launch.updater_container_id,
+        message=(
+            f"Actualizando a v{launch.target_version}. El servidor se reiniciará en unos "
+            "segundos."
+        ),
+    )
 
 
 @system_router.get("/notifications", response_model=NotificationsListResponse)
