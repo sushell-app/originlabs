@@ -30,6 +30,27 @@ services:
     networks:
       - originlabs_net
 
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      PING: 1
+      VERSION: 1
+      INFO: 1
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      EXEC: 1
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      ALLOW_RESTARTS: 1
+      POST: 1
+    networks:
+      - originlabs_net
+
   api:
     build:
       context: ./backend
@@ -43,6 +64,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://originlabs:originlabs_dev_password@postgres:5432/originlabs}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CADDY_ADMIN_URL: ${CADDY_ADMIN_URL:-http://caddy:2019}
+      DOCKER_HOST: ${DOCKER_HOST:-tcp://docker-proxy:2375}
     volumes:
       - ./backend/app:/app/app
       - ./backend/migrations:/app/migrations
@@ -52,6 +74,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      docker-proxy:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
       interval: 10s
@@ -73,6 +97,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://originlabs:originlabs_dev_password@postgres:5432/originlabs}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       CADDY_ADMIN_URL: ${CADDY_ADMIN_URL:-http://caddy:2019}
+      DOCKER_HOST: ${DOCKER_HOST:-tcp://docker-proxy:2375}
     volumes:
       - ./backend/app:/app/app
     command: ["arq", "app.worker.WorkerSettings"]
@@ -81,6 +106,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      docker-proxy:
+        condition: service_started
     networks:
       - originlabs_net
 
@@ -116,6 +143,7 @@ services:
       - frontend
     networks:
       - originlabs_net
+      - originlabs_workspaces
 
 volumes:
   postgres_data_dev:
@@ -126,4 +154,7 @@ volumes:
 networks:
   originlabs_net:
     name: originlabs_net
+    driver: bridge
+  originlabs_workspaces:
+    name: originlabs_workspaces
     driver: bridge

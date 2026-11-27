@@ -157,7 +157,10 @@ async def fetch_release_for_channel(
 ) -> ReleaseCandidate | None:
     """Download release manifest or GitHub Releases metadata and extract channel candidate."""
     async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(url, headers={"Accept": "application/json"})
+        response = await client.get(
+            url,
+            headers={"Accept": "application/json", "User-Agent": "OriginLabs-Updater"},
+        )
         response.raise_for_status()
         payload = response.json()
     return _parse_manifest_payload(payload, channel=channel, public_key_b64=public_key_b64)

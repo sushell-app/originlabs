@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# OriginLabs 1-Command Installer (v0.1)
+# OriginLabs 1-Command Installer (v0.1.0)
 # No requiere Python en el host; toda la plataforma corre en Docker.
 
 MIN_CPU_CORES=2
@@ -314,6 +314,7 @@ POSTGRES_PASSWORD=${pg_pass}
 DATABASE_URL=postgresql+asyncpg://originlabs:${pg_pass}@postgres:5432/originlabs
 REDIS_URL=redis://redis:6379/0
 CADDY_ADMIN_URL=http://caddy:2019
+DOCKER_HOST=tcp://docker-proxy:2375
 
 ORIGINLABS_RELEASE_CHANNEL=stable
 ORIGINLABS_RELEASES_URL=https://api.github.com/repos/sushell-app/originlabs/releases
@@ -343,9 +344,10 @@ deploy_stack() {
   if [[ "${IMAGE}" == */* ]]; then
     docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" pull
   else
-    docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" pull postgres redis caddy
+    docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" pull postgres redis caddy docker-proxy
   fi
   docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" up -d --no-build
+  docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" restart caddy
 }
 
 wait_for_health() {

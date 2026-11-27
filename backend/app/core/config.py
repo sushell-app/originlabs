@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "OriginLabs Core API"
-    app_version: str = "0.1.0-alpha"
+    app_version: str = "0.1.0"
     originlabs_env: str = "development"
     originlabs_domain: str = "localhost"
     originlabs_secret_key: str = "change-me-in-production"
