@@ -10,7 +10,7 @@ from pathlib import Path
 import docker
 from docker.errors import DockerException
 
-from app.modules.workspaces.orchestrator import WORKSPACE_CLASS_SPECS, WorkspaceClass
+from app.modules.workspaces.orchestrator import WorkspaceClass
 
 
 @dataclass(frozen=True, slots=True)
