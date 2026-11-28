@@ -207,7 +207,7 @@ export default function NotificationsView({
         <div className="rounded-xl border border-[#2D2D32] bg-[#1E1E21] p-4">
           <p className="text-xs text-[#A1A1AA]">Versión instalada</p>
           <p className="text-xl font-semibold text-[#F4F4F6] mt-2 tabular-nums">
-            {updateStatus?.current_version ?? "0.1.1"}
+            {updateStatus?.current_version ?? "0.1.2"}
           </p>
           <p className="text-[11px] text-[#71717A] mt-1 capitalize">
             Canal: {updateStatus?.channel ?? "stable"}

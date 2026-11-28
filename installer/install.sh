@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# OriginLabs 1-Command Installer (v0.1.1)
+# OriginLabs 1-Command Installer (v0.1.2)
 # No requiere Python en el host; toda la plataforma corre en Docker.
 
 MIN_CPU_CORES=2
@@ -269,6 +269,8 @@ write_caddyfile() {
 		forward_auth api:8000 {
 			uri /api/v1/internal/forward-auth
 			copy_headers X-OriginLabs-User-Id X-OriginLabs-User-Email X-OriginLabs-Is-Admin
+			header_up -Connection
+			header_up -Upgrade
 		}
 		uri path_regexp ^/ws/ws-[a-f0-9]{8}(/.*)$ $1
 		reverse_proxy ol-ws-{re.ws.1}:8080 {
@@ -299,6 +301,8 @@ EOF
 		forward_auth api:8000 {
 			uri /api/v1/internal/forward-auth
 			copy_headers X-OriginLabs-User-Id X-OriginLabs-User-Email X-OriginLabs-Is-Admin
+			header_up -Connection
+			header_up -Upgrade
 		}
 		uri path_regexp ^/ws/ws-[a-f0-9]{8}(/.*)$ $1
 		reverse_proxy ol-ws-{re.ws.1}:8080 {
