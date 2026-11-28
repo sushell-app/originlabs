@@ -33,9 +33,15 @@ if [ -f "$ENV_FILE" ]; then
   fi
 fi
 docker compose -p "$ORIGINLABS_PROJECT" --project-directory "$ORIGINLABS_WORK_DIR" \\
-  -f "$ORIGINLABS_COMPOSE_FILE" up -d --no-build --force-recreate api worker
+  -f "$ORIGINLABS_COMPOSE_FILE" stop api worker || true
+docker compose -p "$ORIGINLABS_PROJECT" --project-directory "$ORIGINLABS_WORK_DIR" \\
+  -f "$ORIGINLABS_COMPOSE_FILE" rm -f api worker || true
+docker compose -p "$ORIGINLABS_PROJECT" --project-directory "$ORIGINLABS_WORK_DIR" \\
+  -f "$ORIGINLABS_COMPOSE_FILE" up -d --no-build --no-deps --force-recreate api worker
 docker compose -p "$ORIGINLABS_PROJECT" --project-directory "$ORIGINLABS_WORK_DIR" \\
   -f "$ORIGINLABS_COMPOSE_FILE" restart caddy || true
+docker compose -p "$ORIGINLABS_PROJECT" --project-directory "$ORIGINLABS_WORK_DIR" \\
+  -f "$ORIGINLABS_COMPOSE_FILE" ps
 """
 
 

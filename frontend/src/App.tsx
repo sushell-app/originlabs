@@ -488,7 +488,7 @@ export default function App() {
         <div className="p-4 border-t border-[#2C2C31] space-y-2 text-xs">
           <div className="flex items-center justify-between text-[#71717A] px-1 tabular-nums">
             <span className="capitalize">{meta?.edition ?? "community"}</span>
-            <span>{meta?.version ?? "0.1.2"}</span>
+            <span>{meta?.version ?? "0.1.3"}</span>
           </div>
           <button
             type="button"

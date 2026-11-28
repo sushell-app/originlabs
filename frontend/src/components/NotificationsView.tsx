@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Bell,
   Check,
   CheckCheck,
   ExternalLink,
+  Mail,
   RefreshCw,
+  Send,
   ShieldAlert,
   Webhook,
 } from "lucide-react";
@@ -12,11 +14,15 @@ import {
   ApiError,
   applySystemUpdate,
   getMeta,
+  getSmtpConfig,
   markAllNotificationsRead,
   markNotificationRead,
+  testSmtpConfig,
   triggerUpdateCheck,
+  updateSmtpConfig,
   updateUpdateSettings,
   type ReleaseChannel,
+  type SmtpConfigPublic,
   type SystemNotificationPublic,
   type UpdateStatusResponse,
 } from "../lib/api";
@@ -27,6 +33,8 @@ interface NotificationsViewProps {
   unreadCount: number;
   onRefresh: () => Promise<void>;
 }
+
+type SmtpSecurityMode = "tls" | "ssl" | "plain";
 
 export default function NotificationsView({
   updateStatus,
@@ -45,6 +53,92 @@ export default function NotificationsView({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // SMTP client state
+  const [smtpConfig, setSmtpConfig] = useState<SmtpConfigPublic | null>(null);
+  const [smtpEnabled, setSmtpEnabled] = useState(false);
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpUsername, setSmtpUsername] = useState("");
+  const [smtpPassword, setSmtpPassword] = useState("");
+  const [smtpFromEmail, setSmtpFromEmail] = useState("");
+  const [smtpFromName, setSmtpFromName] = useState("OriginLabs");
+  const [smtpSecurity, setSmtpSecurity] = useState<SmtpSecurityMode>("tls");
+  const [smtpNotifyUpdates, setSmtpNotifyUpdates] = useState(true);
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [smtpTesting, setSmtpTesting] = useState(false);
+  const [smtpTestEmail, setSmtpTestEmail] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void getSmtpConfig()
+      .then((cfg) => {
+        if (!active) return;
+        setSmtpConfig(cfg);
+        setSmtpEnabled(cfg.enabled);
+        setSmtpHost(cfg.host);
+        setSmtpPort(cfg.port);
+        setSmtpUsername(cfg.username);
+        setSmtpFromEmail(cfg.from_email);
+        setSmtpFromName(cfg.from_name);
+        setSmtpSecurity(cfg.use_ssl ? "ssl" : cfg.use_tls ? "tls" : "plain");
+        setSmtpNotifyUpdates(cfg.notify_updates);
+      })
+      .catch(() => {
+        // Non-blocking fallback if SMTP config cannot be loaded yet
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleSaveSmtp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSmtpSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const updated = await updateSmtpConfig({
+        enabled: smtpEnabled,
+        host: smtpHost.trim(),
+        port: Number(smtpPort) || 587,
+        username: smtpUsername.trim(),
+        password: smtpPassword.trim() ? smtpPassword.trim() : undefined,
+        from_email: smtpFromEmail.trim() || undefined,
+        from_name: smtpFromName.trim() || "OriginLabs",
+        use_tls: smtpSecurity === "tls",
+        use_ssl: smtpSecurity === "ssl",
+        notify_updates: smtpNotifyUpdates,
+      });
+      setSmtpConfig(updated);
+      setSmtpPassword("");
+      setMessage("Configuración SMTP guardada correctamente.");
+    } catch (err: unknown) {
+      setError(err instanceof ApiError ? err.detail : "No se pudo guardar la configuración SMTP.");
+    } finally {
+      setSmtpSaving(false);
+    }
+  }
+
+  async function handleTestSmtp() {
+    setSmtpTesting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await testSmtpConfig(smtpTestEmail);
+      const refreshed = await getSmtpConfig();
+      setSmtpConfig(refreshed);
+      if (res.ok) {
+        setMessage(res.detail);
+      } else {
+        setError(res.detail);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof ApiError ? err.detail : "Error enviando correo de prueba SMTP.");
+    } finally {
+      setSmtpTesting(false);
+    }
+  }
 
   async function handleCheckNow() {
     setChecking(true);
@@ -327,6 +421,181 @@ export default function NotificationsView({
             className="rounded-lg border border-[#323238] bg-[#1E1E22] hover:bg-[#232329] px-4 py-2 text-xs font-medium text-[#F4F4F6]"
           >
             {saving ? "Guardando..." : "Guardar configuración"}
+          </button>
+        </div>
+      </form>
+
+      {/* Cliente SMTP saliente */}
+      <form
+        onSubmit={handleSaveSmtp}
+        className="rounded-xl border border-[#26262B] bg-[#141417] p-5 space-y-4"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#F4F4F6]">
+            <Mail className="h-4 w-4 text-[#34D399]" />
+            Cliente SMTP (Correo saliente)
+          </div>
+          {smtpConfig?.last_test_status && (
+            <span
+              className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                smtpConfig.last_test_status === "success"
+                  ? "bg-[rgba(52,211,153,0.12)] border-[rgba(52,211,153,0.3)] text-[#34D399]"
+                  : "bg-[rgba(239,100,97,0.14)] border-[rgba(239,100,97,0.35)] text-[#FCA5A5]"
+              }`}
+            >
+              Última prueba: {smtpConfig.last_test_status === "success" ? "OK" : "Error"}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
+              Servidor SMTP (Host)
+            </label>
+            <input
+              type="text"
+              value={smtpHost}
+              onChange={(e) => setSmtpHost(e.target.value)}
+              placeholder="smtp.resend.com / smtp.gmail.com"
+              className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
+              Puerto
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={65535}
+              value={smtpPort}
+              onChange={(e) => setSmtpPort(Number(e.target.value) || 587)}
+              className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
+              Seguridad
+            </label>
+            <select
+              value={smtpSecurity}
+              onChange={(e) => {
+                const mode = e.target.value as SmtpSecurityMode;
+                setSmtpSecurity(mode);
+                if (mode === "ssl" && smtpPort === 587) setSmtpPort(465);
+                if (mode === "tls" && smtpPort === 465) setSmtpPort(587);
+              }}
+              className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
+            >
+              <option value="tls">STARTTLS (puerto 587)</option>
+              <option value="ssl">SSL / TLS directo (puerto 465)</option>
+              <option value="plain">Sin cifrado (puerto 25 / relay interno)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
+              Usuario SMTP
+            </label>
+            <input
+              type="text"
+              value={smtpUsername}
+              onChange={(e) => setSmtpUsername(e.target.value)}
+              placeholder="apikey o usuario@dominio.com"
+              className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
+              Contraseña / App Password {smtpConfig?.has_password ? "(guardada)" : ""}
+            </label>
+            <input
+              type="password"
+              value={smtpPassword}
+              onChange={(e) => setSmtpPassword(e.target.value)}
+              placeholder="Dejar vacío para mantener actual"
+              className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
+              Correo remitente (From)
+            </label>
+            <input
+              type="email"
+              value={smtpFromEmail}
+              onChange={(e) => setSmtpFromEmail(e.target.value)}
+              placeholder="noreply@tu-dominio.com"
+              className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-[#A1A1AA] mb-1.5">
+              Nombre remitente
+            </label>
+            <input
+              type="text"
+              value={smtpFromName}
+              onChange={(e) => setSmtpFromName(e.target.value)}
+              placeholder="OriginLabs"
+              className="w-full rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-2 text-xs text-[#F4F4F6]"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="inline-flex items-center gap-2 text-xs text-[#A1A1AA]">
+              <input
+                type="checkbox"
+                checked={smtpEnabled}
+                onChange={(e) => setSmtpEnabled(e.target.checked)}
+                className="rounded border-[#323238] bg-[#18181B]"
+              />
+              Activar cliente SMTP
+            </label>
+            <label className="inline-flex items-center gap-2 text-xs text-[#A1A1AA]">
+              <input
+                type="checkbox"
+                checked={smtpNotifyUpdates}
+                onChange={(e) => setSmtpNotifyUpdates(e.target.checked)}
+                className="rounded border-[#323238] bg-[#18181B]"
+              />
+              Enviar alertas de actualización a admins
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={smtpSaving}
+            className="rounded-lg border border-[#323238] bg-[#1E1E22] hover:bg-[#232329] px-4 py-2 text-xs font-medium text-[#F4F4F6]"
+          >
+            {smtpSaving ? "Guardando..." : "Guardar SMTP"}
+          </button>
+        </div>
+
+        <div className="border-t border-[#26262B] pt-3 flex flex-wrap items-center gap-2">
+          <input
+            type="email"
+            value={smtpTestEmail}
+            onChange={(e) => setSmtpTestEmail(e.target.value)}
+            placeholder="Destinatario de prueba (opcional, por defecto tu correo admin)"
+            className="flex-1 min-w-[240px] rounded-lg bg-[#18181B] border border-[#26262B] px-3 py-1.5 text-xs text-[#F4F4F6]"
+          />
+          <button
+            type="button"
+            disabled={smtpTesting}
+            onClick={() => void handleTestSmtp()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#323238] bg-[#1E1E22] hover:bg-[#232329] disabled:opacity-50 px-3.5 py-1.5 text-xs font-medium text-[#F4F4F6]"
+          >
+            <Send className="h-3.5 w-3.5 text-[#34D399]" />
+            {smtpTesting ? "Enviando prueba..." : "Enviar correo de prueba"}
           </button>
         </div>
       </form>

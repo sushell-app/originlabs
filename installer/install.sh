@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# OriginLabs 1-Command Installer (v0.1.2)
+# OriginLabs 1-Command Installer (v0.1.3)
 # No requiere Python en el host; toda la plataforma corre en Docker.
 
 MIN_CPU_CORES=2
@@ -388,7 +388,11 @@ deploy_stack() {
   else
     docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" pull postgres redis caddy docker-proxy
   fi
-  docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" up -d --no-build
+  if ! docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" up -d --no-build --remove-orphans; then
+    log "Recreación limpia tras actualización previa..."
+    docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" down --remove-orphans || true
+    docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" up -d --no-build
+  fi
   docker compose --project-directory "${INSTALL_DIR}" -f "${INSTALL_DIR}/compose.prod.yml" restart caddy
 }
 

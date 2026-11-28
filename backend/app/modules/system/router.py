@@ -1,6 +1,7 @@
 """Instance administrator endpoints for updates, notifications, metrics and backups."""
 
 import asyncio
+import smtplib
 import uuid
 from datetime import UTC, datetime
 from typing import cast
@@ -24,6 +25,7 @@ from app.modules.system.models import (
     BackupConfig,
     BackupSnapshot,
     InstanceUpdateState,
+    SmtpConfig,
     SystemNotification,
 )
 from app.modules.system.monitoring import collect_host_metrics, evaluate_admission
@@ -35,11 +37,21 @@ from app.modules.system.schemas import (
     HostMetricsResponse,
     NotificationsListResponse,
     ReleaseChannel,
+    SmtpConfigPublic,
+    SmtpConfigUpdateRequest,
+    SmtpTestRequest,
+    SmtpTestResponse,
     SystemNotificationPublic,
     UpdateApplyRequest,
     UpdateApplyResponse,
     UpdateSettingsRequest,
     UpdateStatusResponse,
+)
+from app.modules.system.smtp import (
+    get_or_create_smtp_config,
+    sanitize_header_value,
+    send_smtp_email_sync,
+    validate_smtp_host,
 )
 from app.modules.system.updater import trigger_self_update, validate_target_version
 from app.modules.system.updates import (
@@ -491,3 +503,167 @@ async def trigger_manual_backup(
     )
     await db.commit()
     return snapshot
+
+
+def _serialize_smtp_config(config: SmtpConfig) -> SmtpConfigPublic:
+    return SmtpConfigPublic(
+        enabled=config.enabled,
+        host=config.host,
+        port=config.port,
+        username=config.username,
+        has_password=bool(config.encrypted_password),
+        from_email=config.from_email,
+        from_name=config.from_name,
+        use_tls=config.use_tls,
+        use_ssl=config.use_ssl,
+        notify_updates=config.notify_updates,
+        last_test_at=config.last_test_at,
+        last_test_status=config.last_test_status,
+        last_test_error=config.last_test_error,
+        updated_at=config.updated_at,
+    )
+
+
+@system_router.get("/smtp", response_model=SmtpConfigPublic)
+async def get_smtp_settings(
+    _: User = Depends(require_instance_admin),
+    db: AsyncSession = Depends(get_db),
+) -> SmtpConfigPublic:
+    """Return outbound SMTP client settings with password masked."""
+    config = await get_or_create_smtp_config(db)
+    await db.commit()
+    return _serialize_smtp_config(config)
+
+
+@system_router.patch("/smtp", response_model=SmtpConfigPublic)
+async def update_smtp_settings(
+    payload: SmtpConfigUpdateRequest,
+    request: Request,
+    admin: User = Depends(require_instance_admin),
+    db: AsyncSession = Depends(get_db),
+) -> SmtpConfigPublic:
+    """Update outbound SMTP server, TLS mode and encrypted credentials."""
+    config = await get_or_create_smtp_config(db)
+
+    next_tls = payload.use_tls if payload.use_tls is not None else config.use_tls
+    next_ssl = payload.use_ssl if payload.use_ssl is not None else config.use_ssl
+    if next_tls and next_ssl:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No puedes activar STARTTLS y SSL directo al mismo tiempo.",
+        )
+
+    if payload.host is not None:
+        cleaned_host = payload.host.strip()
+        if cleaned_host:
+            try:
+                config.host = validate_smtp_host(cleaned_host)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(exc),
+                ) from exc
+        else:
+            config.host = ""
+
+    if payload.enabled is not None:
+        config.enabled = payload.enabled
+    if payload.port is not None:
+        config.port = payload.port
+    if payload.username is not None:
+        try:
+            config.username = sanitize_header_value(payload.username, "username")
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
+    if payload.password is not None:
+        config.encrypted_password = (
+            encrypt_secret(payload.password) if payload.password else None
+        )
+    if payload.from_email is not None:
+        config.from_email = str(payload.from_email).strip()
+    if payload.from_name is not None:
+        try:
+            config.from_name = (
+                sanitize_header_value(payload.from_name, "from_name") or "OriginLabs"
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
+    if payload.notify_updates is not None:
+        config.notify_updates = payload.notify_updates
+
+    config.use_tls = next_tls
+    config.use_ssl = next_ssl
+
+    if config.enabled and (not config.host or not config.from_email):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Para activar SMTP debes indicar host y correo remitente.",
+        )
+
+    await record_audit_event(
+        db,
+        action="system.smtp_config_updated",
+        resource_type="smtp_config",
+        resource_id="1",
+        actor=admin,
+        ip_address=get_client_ip(request),
+        details={"enabled": config.enabled, "host": config.host, "port": config.port},
+    )
+    await db.commit()
+    await db.refresh(config)
+    return _serialize_smtp_config(config)
+
+
+@system_router.post("/smtp/test", response_model=SmtpTestResponse)
+async def test_smtp_settings(
+    request: Request,
+    payload: SmtpTestRequest | None = None,
+    admin: User = Depends(require_instance_admin),
+    db: AsyncSession = Depends(get_db),
+) -> SmtpTestResponse:
+    """Send a test email through the saved SMTP client and record the outcome."""
+    config = await get_or_create_smtp_config(db)
+    recipient = str(payload.to_email) if payload and payload.to_email else admin.email
+    now = datetime.now(UTC)
+
+    try:
+        await asyncio.to_thread(
+            send_smtp_email_sync,
+            config,
+            to_email=recipient,
+            subject="OriginLabs · Prueba de cliente SMTP",
+            body_text=(
+                "Tu cliente SMTP en OriginLabs está configurado y funcionando.\n\n"
+                f"Servidor: {config.host}:{config.port}"
+            ),
+        )
+        config.last_test_at = now
+        config.last_test_status = "success"
+        config.last_test_error = None
+        ok = True
+        detail = f"Correo de prueba enviado correctamente a {recipient}."
+    except (OSError, smtplib.SMTPException, ValueError) as exc:
+        config.last_test_at = now
+        config.last_test_status = "failed"
+        config.last_test_error = str(exc)[:500]
+        ok = False
+        detail = f"Error enviando correo SMTP: {exc}"
+
+    await record_audit_event(
+        db,
+        action="system.smtp_tested",
+        resource_type="smtp_config",
+        resource_id="1",
+        actor=admin,
+        ip_address=get_client_ip(request),
+        details={"ok": ok, "recipient": recipient},
+    )
+    await db.commit()
+
+    return SmtpTestResponse(ok=ok, detail=detail, sent_to=recipient, tested_at=now)

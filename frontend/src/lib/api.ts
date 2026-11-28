@@ -944,3 +944,56 @@ export function applySystemUpdate(targetVersion?: string): Promise<UpdateApplyRe
     body: JSON.stringify(targetVersion ? { target_version: targetVersion } : {}),
   });
 }
+
+export interface SmtpConfigPublic {
+  enabled: boolean;
+  host: string;
+  port: number;
+  username: string;
+  has_password: boolean;
+  from_email: string;
+  from_name: string;
+  use_tls: boolean;
+  use_ssl: boolean;
+  notify_updates: boolean;
+  last_test_at: string | null;
+  last_test_status: string | null;
+  last_test_error: string | null;
+  updated_at: string;
+}
+
+export interface SmtpTestResponse {
+  ok: boolean;
+  detail: string;
+  sent_to: string;
+  tested_at: string;
+}
+
+export function getSmtpConfig(): Promise<SmtpConfigPublic> {
+  return request<SmtpConfigPublic>("/system/smtp");
+}
+
+export function updateSmtpConfig(payload: {
+  enabled?: boolean;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  from_email?: string;
+  from_name?: string;
+  use_tls?: boolean;
+  use_ssl?: boolean;
+  notify_updates?: boolean;
+}): Promise<SmtpConfigPublic> {
+  return request<SmtpConfigPublic>("/system/smtp", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function testSmtpConfig(toEmail?: string): Promise<SmtpTestResponse> {
+  return request<SmtpTestResponse>("/system/smtp/test", {
+    method: "POST",
+    body: JSON.stringify(toEmail?.trim() ? { to_email: toEmail.trim() } : {}),
+  });
+}

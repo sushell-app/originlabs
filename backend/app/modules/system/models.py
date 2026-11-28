@@ -92,3 +92,27 @@ class BackupSnapshot(Base):
         DateTime(timezone=True), default=_utcnow, index=True, nullable=False
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SmtpConfig(Base):
+    """Singleton encrypted outbound SMTP client configuration."""
+
+    __tablename__ = "smtp_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    host: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    port: Mapped[int] = mapped_column(Integer, default=587, nullable=False)
+    username: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    encrypted_password: Mapped[str | None] = mapped_column(Text, nullable=True)
+    from_email: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    from_name: Mapped[str] = mapped_column(String(120), default="OriginLabs", nullable=False)
+    use_tls: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    use_ssl: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    notify_updates: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_test_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_test_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    last_test_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )

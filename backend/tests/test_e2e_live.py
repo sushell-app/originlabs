@@ -159,6 +159,26 @@ async def test_full_api_lifecycle_e2e() -> None:
 
         updates_resp = await client.get("/api/v1/system/updates")
         assert updates_resp.status_code == 200
+        smtp_get = await client.get("/api/v1/system/smtp")
+        assert smtp_get.status_code == 200
+        smtp_patch = await client.patch(
+            "/api/v1/system/smtp",
+            json={
+                "enabled": True,
+                "host": "smtp.example.com",
+                "port": 587,
+                "username": "mailer@example.com",
+                "password": "smtp-secret-password",
+                "from_email": "noreply@example.com",
+                "from_name": "OriginLabs CI",
+                "use_tls": True,
+                "use_ssl": False,
+                "notify_updates": True,
+            },
+        )
+        assert smtp_patch.status_code == 200
+        assert smtp_patch.json()["has_password"] is True
+        assert smtp_patch.json()["host"] == "smtp.example.com"
         notif_resp = await client.get("/api/v1/system/notifications")
         assert notif_resp.status_code == 200
 

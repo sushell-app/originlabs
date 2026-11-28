@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.crypto import decrypt_secret
 from app.modules.system.models import InstanceUpdateState, SystemNotification
+from app.modules.system.smtp import send_update_notification_emails
 
 _SEMVER_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)(?:[-.]?([0-9A-Za-z.-]+))?$")
 
@@ -312,6 +313,7 @@ async def check_for_updates(db: AsyncSession) -> UpdateCheckResult:
     if created_notification is not None:
         await db.refresh(created_notification)
         await _dispatch_update_webhook(state, created_notification)
+        await send_update_notification_emails(db, created_notification)
 
     return UpdateCheckResult(
         state=state,

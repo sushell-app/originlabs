@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Literal, Self
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from app.modules.system.backups import validate_backup_repository
 
@@ -177,3 +177,60 @@ class UpdateApplyResponse(BaseModel):
     target_image: str
     updater_container_id: str
     message: str
+
+
+class SmtpConfigPublic(BaseModel):
+    """Encrypted SMTP configuration with secret password masked."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    enabled: bool
+    host: str
+    port: int
+    username: str
+    has_password: bool
+    from_email: str
+    from_name: str
+    use_tls: bool
+    use_ssl: bool
+    notify_updates: bool
+    last_test_at: datetime | None
+    last_test_status: str | None
+    last_test_error: str | None
+    updated_at: datetime
+
+
+class SmtpConfigUpdateRequest(BaseModel):
+    """Update outbound SMTP server, TLS mode and credentials."""
+
+    enabled: bool | None = None
+    host: str | None = Field(default=None, max_length=255)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    username: str | None = Field(default=None, max_length=255)
+    password: str | None = Field(default=None, max_length=512)
+    from_email: EmailStr | None = None
+    from_name: str | None = Field(default=None, max_length=120)
+    use_tls: bool | None = None
+    use_ssl: bool | None = None
+    notify_updates: bool | None = None
+
+    @model_validator(mode="after")
+    def check_tls_mode(self) -> Self:
+        if self.use_tls is True and self.use_ssl is True:
+            raise ValueError("No puedes activar STARTTLS y SSL directo al mismo tiempo.")
+        return self
+
+
+class SmtpTestRequest(BaseModel):
+    """Optional recipient email override when testing SMTP delivery."""
+
+    to_email: EmailStr | None = None
+
+
+class SmtpTestResponse(BaseModel):
+    """Outcome of executing an immediate SMTP test message."""
+
+    ok: bool
+    detail: str
+    sent_to: str
+    tested_at: datetime

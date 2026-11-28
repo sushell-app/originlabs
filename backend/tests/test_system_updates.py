@@ -7,7 +7,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import ValidationError
 
-from app.modules.system.schemas import UpdateSettingsRequest
+from app.modules.system.schemas import SmtpConfigUpdateRequest, UpdateSettingsRequest
+from app.modules.system.smtp import build_email_message, validate_smtp_host
 from app.modules.system.updater import (
     DEFAULT_IMAGE_REPO,
     build_updater_container_spec,
@@ -77,6 +78,7 @@ def test_updater_container_spec_validation_and_security() -> None:
     assert spec["auto_remove"] is True
     assert spec["environment"]["DOCKER_HOST"] == "tcp://docker-proxy:2375"
     assert spec["environment"]["ORIGINLABS_TARGET_IMAGE"] == f"{DEFAULT_IMAGE_REPO}:0.1.1"
+    assert "--no-deps" in spec["command"][-1]
 
     with pytest.raises(ValueError):
         validate_target_version("0.1.1; rm -rf /")
@@ -87,4 +89,30 @@ def test_updater_container_spec_validation_and_security() -> None:
             working_dir="/opt/originlabs;id",
             compose_file="/opt/originlabs/compose.prod.yml",
             project_name="originlabs",
+        )
+
+
+def test_smtp_validation_and_message_builder() -> None:
+    assert validate_smtp_host("smtp.gmail.com") == "smtp.gmail.com"
+    with pytest.raises(ValueError):
+        validate_smtp_host("smtp.example.com;id")
+
+    with pytest.raises(ValidationError):
+        SmtpConfigUpdateRequest(use_tls=True, use_ssl=True)
+
+    msg = build_email_message(
+        from_name="OriginLabs",
+        from_email="noreply@example.com",
+        to_email="admin@example.com",
+        subject="Prueba SMTP",
+        body_text="Hola mundo",
+    )
+    assert msg["Subject"] == "Prueba SMTP"
+    with pytest.raises(ValueError):
+        build_email_message(
+            from_name="OriginLabs",
+            from_email="noreply@example.com",
+            to_email="admin@example.com",
+            subject="Bad\r\nBcc: evil@example.com",
+            body_text="Hola",
         )
